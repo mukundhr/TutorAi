@@ -33,6 +33,12 @@ An advanced AI-powered question generation system that automatically creates **S
 - **4GB+ RAM** (8GB+ for larger models)
 - **Optional**: NVIDIA GPU for faster processing
 
+---
+**Note:**
+The LLaMA 2 7B model file (`models/llama-2-7b-chat.Q4_K_M.gguf`) is not included in this repository due to its large size.
+You must download it manually from [TheBloke/Llama-2-7B-Chat-GGUF on Hugging Face](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF) and place it in the `models/` directory.
+---
+
 ### Installation
 
 1. **Clone the repository**
