@@ -1,0 +1,17 @@
+streamlit
+pdfplumber
+spacy
+nltk
+sentence-transformers
+torch
+transformers
+llama-cpp-python
+accelerate
+bitsandbytes
+scikit-learn
+numpy
+pandas
+rouge-score
+bert-score
+python-dotenv
+joblib

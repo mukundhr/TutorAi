@@ -1,0 +1,94 @@
+{
+  "timestamp": "2025-10-02T15:55:07.974324",
+  "params": {
+    "num_saq": 5,
+    "num_mcq": 5,
+    "temperature": 0.7,
+    "chunk_size": 800
+  },
+  "questions": [
+    {
+      "type": "Short Answer",
+      "question": "What is the definition of Programming?",
+      "answer": "Please refer to the content for the definition of Programming.",
+      "points": 5
+    },
+    {
+      "type": "Short Answer",
+      "question": "What is the definition of operating?",
+      "answer": "Please refer to the content for the definition of operating.",
+      "points": 5
+    },
+    {
+      "type": "Short Answer",
+      "question": "What is the definition of operating?",
+      "answer": "Please refer to the content for the definition of operating.",
+      "points": 5
+    },
+    {
+      "type": "Multiple Choice",
+      "question": "What is the primary function of an operating system?",
+      "options": {
+        "A": "Allocates memory for programs and loads them into memory.",
+        "B": "Acts as an interface between programs and hardware resources.",
+        "C": "Loads the CPU registers with control information related to the program.",
+        "D": "Keeps track of the instruction that was last executed."
+      },
+      "correct_answer": "B",
+      "explanation": "The operating system acts as an interface between programs and hardware resources, allocating resources such as memory, CPU time, and I/O devices to programs. It also provides a safe and convenient environment for programs to run in, by managing errors and exceptions, and providing a standardized way for programs to access hardware resources. While options A and C are partially correct, they do not fully capture the key feature of an operating system. Option D is incorrect, as while the operating system does keep track of the instruction that was last executed, this is not its primary function.",
+      "points": 3
+    },
+    {
+      "type": "Multiple Choice",
+      "question": "The operating system's main function is to __________.",
+      "options": {
+        "A": "Keep track of the instruction that was last executed to resume a program.",
+        "B": "Direct the disk controller to open a file and make the data available to the program.",
+        "C": "Allow multiple programs to be in memory.",
+        "D": "Attempt to do the job itself instead of making a call to the operating system.\n\nCorrect answer:"
+      },
+      "correct_answer": "A",
+      "explanation": "The operating system's main function is to keep track of the instruction that was last executed, which enables it to resume a program if it had to be taken out of the CPU before it completed execution. This is the main function of the operating system and it is not related to directing the disk controller to open a file, allowing multiple programs to be in memory, or attempting to do the job itself.",
+      "points": 3
+    },
+    {
+      "type": "Multiple Choice",
+      "question": "An operating system allows multiple programs to be in memory because:",
+      "options": {
+        "A": "It allows a single program to run to completion without interruption.",
+        "B": "It allows a program to run for a small instant of time, save its current state, and then load the next program in the queue.",
+        "C": "It creates a process for each program and then controls the switching of these processes.",
+        "D": "It allows a program to run in parallel with other programs.\n\nCorrect answer:"
+      },
+      "correct_answer": "A",
+      "explanation": "An operating system allows multiple programs to be in memory by temporarily suspending the execution of one program and loading the next program in the queue. This allows the operating system to efficiently switch between programs, enabling multiple programs to be run concurrently. Option A is incorrect because it suggests that the operating system allows a single program to run to completion without interruption, which is not the case. Option C is incorrect because it implies that the operating system creates a process for each program, which is not the only way to implement process switching. Option D is incorrect because it implies that programs can run in parallel with each other, which is not the main function of an operating system.",
+      "points": 3
+    },
+    {
+      "type": "Multiple Choice",
+      "question": "Which of the following is a key feature of the Unix operating system?",
+      "options": {
+        "A": "Unix is a single-user operating system.",
+        "B": "Unix is a multi-user operating system that allows multiple users to access the system simultaneously.",
+        "C": "Unix is a single-task operating system that cannot run multiple tasks at the same time.",
+        "D": "Unix is an operating system that is not capable of multitasking or multiuser functionality.\n\nCorrect answer:"
+      },
+      "correct_answer": "A",
+      "explanation": "Unix is a multitasking and multiuser operating system, meaning that it can run multiple tasks simultaneously and allow multiple users to access the system at the same time. This is a key feature that distinguishes Unix from other operating systems like DOS and Windows, which are single-user and single-tasking.",
+      "points": 3
+    },
+    {
+      "type": "Multiple Choice",
+      "question": "What is a unique feature of the Unix operating system that sets it apart from other operating systems?",
+      "options": {
+        "A": "Unix requires users to type long and complex commands to perform tasks.",
+        "B": "Unix provides a graphical user interface for interacting with the system.",
+        "C": "Unix only allows users to perform tasks by typing commands in a command interpreter.",
+        "D": "Unix tells the user when they are doing something wrong and warns them of the consequences."
+      },
+      "correct_answer": "C",
+      "explanation": "Unix is known for its command-line interface, which requires users to type specific commands in a specific order to perform tasks. This can be challenging for users who are used to graphical interfaces or other ways of interacting with computers. However, the command-line interface allows for precise control and efficiency, making it a powerful tool for performing complex tasks.",
+      "points": 3
+    }
+  ]
+}
