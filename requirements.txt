@@ -15,3 +15,5 @@ rouge-score
 bert-score
 python-dotenv
 joblib
+faiss-cpu
+google-generativeai

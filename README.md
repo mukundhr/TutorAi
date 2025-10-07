@@ -5,10 +5,12 @@ An advanced AI-powered question generation system that automatically creates **S
 
 ## ✨ Key Features
 
-### 🤖 **Dual AI Architecture**
-- **🔄 Transformers Models** for SAQ generation (Hugging Face)
-- **🦙 LLaMA 2 7B** for MCQ generation (Local GGUF model)
+### 🤖 **Dual AI Architecture with Multiple LLM Options**
+- **🌟 Google Gemini 2.0 Flash** - Main LLM for high-quality MCQ generation (API-based, fast & efficient)
+- **🦙 LLaMA 2 7B Quantized** - Alternative local LLM for MCQ generation
+- **🔄 Transformers Models** - For SAQ generation (Hugging Face)
 - **🛡️ Smart Fallback System** - Always generates questions, never fails
+- **⚙️ Easy Switching** - Toggle between Gemini and LLaMA in the UI
 
 ### 📚 **Question Generation**
 - **📝 Short Answer Questions** - Educational, contextual questions
@@ -19,7 +21,8 @@ An advanced AI-powered question generation system that automatically creates **S
 ### 🔧 **Advanced Features**
 - **📄 PDF Processing** - Extract text from lecture notes, textbooks
 - **🧹 Text Preprocessing** - Intelligent cleaning and chunking
-- **💾 Smart Caching** - Avoid regenerating same content
+- **� RAG (Retrieval-Augmented Generation)** - Semantic search across the entire document for enhanced context
+- **�💾 Smart Caching** - Avoid regenerating same content
 - **📊 Quality Analytics** - ROUGE score, BERT score, diversity metrics
 - **📤 Multiple Export Formats** - JSON, CSV, TXT, Moodle XML
 
@@ -28,12 +31,13 @@ An advanced AI-powered question generation system that automatically creates **S
 ### Prerequisites
 - **Python 3.8+** (3.10+ recommended)
 - **4GB+ RAM** (8GB+ for larger models)
-- **Optional**: NVIDIA GPU for faster processing
+- **Gemini API Key** (Get free from [Google AI Studio](https://makersuite.google.com/app/apikey))
+- **Optional**: NVIDIA GPU for faster local model processing
 
 ---
 **Note:**
-The LLaMA 2 7B model file (`models/llama-2-7b-chat.Q4_K_M.gguf`) is not included in this repository due to its large size.
-You must download it manually from [TheBloke/Llama-2-7B-Chat-GGUF on Hugging Face](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF) and place it in the `models/` directory.
+- **For Gemini (Recommended)**: Get a free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **For Local LLaMA**: The LLaMA 2 7B model file (`models/llama-2-7b-chat.Q4_K_M.gguf`) is not included due to its large size. Download it manually from [TheBloke/Llama-2-7B-Chat-GGUF on Hugging Face](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF) and place it in the `models/` directory.
 ---
 
 ### Installation
@@ -49,12 +53,25 @@ You must download it manually from [TheBloke/Llama-2-7B-Chat-GGUF on Hugging Fac
    pip install -r requirements.txt
    ```
 
-3. **Download LLaMA 2 model (Optional - for MCQ generation)**
-   ```bash
-   # Download LLaMA 2 7B Chat GGUF model
-   # Place in: models/llama-2-7b-chat.Q4_K_M.gguf
-   # Get from: https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF
-   ```
+3. **Configure your LLM (Choose one or both)**
+
+   **Option A: Google Gemini (Recommended)**
+   - Get a free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create a `.env` file in the project root
+   - Add your API key:
+     ```bash
+     GEMINI_API_KEY=your_api_key_here
+     DEFAULT_LLM=gemini
+     ```
+
+   **Option B: Local LLaMA 2**
+   - Download the model from [Hugging Face](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF)
+   - Place in `models/llama-2-7b-chat.Q4_K_M.gguf`
+   - Set in `.env`:
+     ```bash
+     DEFAULT_LLM=llama
+     LLAMA_MODEL_PATH=./models/llama-2-7b-chat.Q4_K_M.gguf
+     ```
 
 4. **Run the application**
    ```bash
@@ -63,6 +80,7 @@ You must download it manually from [TheBloke/Llama-2-7B-Chat-GGUF on Hugging Fac
 
 5. **Access the application**
    - Open http://localhost:8501 in your browser
+   - Select your preferred LLM (Gemini or LLaMA) in the sidebar
    - Upload a PDF and start generating questions!
 
 ## 🏗️ System Architecture
@@ -131,9 +149,83 @@ You must download it manually from [TheBloke/Llama-2-7B-Chat-GGUF on Hugging Fac
 
 | Priority | Method | Models | Success Rate | Use Case |
 |----------|--------|--------|--------------|----------|
-| **1** | **Transformers** | DialoGPT → GPT-2 → DistilGPT-2 → OPT | 95%+ | SAQ Generation |
-| **2** | **LLaMA Local** | llama-2-7b-chat.Q4_K_M.gguf | 90%+ | MCQ Generation |
-| **3** | **Templates** | Rule-based generation | 100% | Ultimate Fallback |
+| **1** | **Google Gemini 2.0** | gemini-2.0-flash-exp | 98%+ | Primary MCQ Generation (API) |
+| **2** | **Local LLaMA** | llama-2-7b-chat.Q4_K_M.gguf | 90%+ | Alternative MCQ (Privacy) |
+| **3** | **Transformers** | DialoGPT → GPT-2 → DistilGPT-2 → OPT | 95%+ | SAQ Generation |
+| **4** | **Templates** | Rule-based generation | 100% | Ultimate Fallback |
+
+## 🎛️ LLM Selection Guide
+
+### Google Gemini (Recommended)
+**Pros:**
+- ✅ Higher quality questions
+- ✅ Faster generation (API-based)
+- ✅ No local storage needed
+- ✅ Free tier available
+- ✅ No GPU required
+
+**Cons:**
+- ❌ Requires internet connection
+- ❌ Needs API key
+- ❌ Usage limits on free tier
+
+### Local LLaMA 2 7B
+**Pros:**
+- ✅ Complete privacy (runs locally)
+- ✅ No internet required
+- ✅ No API costs
+- ✅ Unlimited usage
+
+**Cons:**
+- ❌ Large model file (~4GB)
+- ❌ Slower generation
+- ❌ Requires more RAM
+- ❌ GPU recommended for speed
+
+### Switching Between LLMs
+You can easily switch between Gemini and LLaMA:
+1. Open the sidebar in the app
+2. Select "Google Gemini (API)" or "Local LLaMA 2 7B"
+3. Click "Load Models"
+4. Start generating questions!
+
+## 🔍 RAG (Retrieval-Augmented Generation)
+
+### What is RAG?
+RAG enhances question generation by using **semantic search** to find the most relevant context from the entire document, not just the current chunk. This results in:
+- ✅ **Better context understanding** - Questions aware of the full document
+- ✅ **More coherent questions** - Better connection between concepts
+- ✅ **Smarter distractors** - MCQ options that are more challenging and relevant
+- ✅ **Reduced hallucination** - Questions grounded in actual content
+
+### How it Works
+1. **Document Upload** → PDF text is extracted
+2. **Vector Store Creation** → All chunks are embedded using `all-MiniLM-L6-v2` model
+3. **Semantic Search** → For each chunk, RAG retrieves the top 3 most relevant chunks
+4. **Enhanced Generation** → LLM uses both the current chunk + retrieved context
+5. **Better Questions** → Results in more comprehensive and accurate questions
+
+### Enabling RAG
+In the app sidebar:
+- ☑️ Check "Enable RAG (Retrieval-Augmented Generation)"
+- Questions will be marked as `rag_enhanced: true`
+
+### RAG Configuration
+In your `.env` file:
+```bash
+ENABLE_RAG=true
+RAG_EMBEDDING_MODEL=all-MiniLM-L6-v2  # Fast & lightweight
+RAG_TOP_K=3  # Number of relevant chunks to retrieve
+RAG_MIN_SCORE=0.3  # Minimum similarity threshold
+```
+
+### Performance Impact
+| Mode | Speed | Quality | Memory |
+|------|-------|---------|--------|
+| **Without RAG** | Fast | Good | Low |
+| **With RAG** | Slightly slower (~10-20% overhead) | Excellent | Medium (embeddings cached) |
+
+**Recommendation:** Enable RAG for better quality questions, especially for complex or lengthy documents.
 
 ## 📋 Technical Stack
 
@@ -180,6 +272,9 @@ scikit-learn   # ML utilities
 # Question Settings
 num_saq = 5          # Short Answer Questions (0-20)
 num_mcq = 5          # Multiple Choice Questions (0-20)
+
+# RAG Settings
+enable_rag = True    # Enable semantic search for better context
 
 # Model Settings  
 temperature = 0.7    # Creativity level (0.1-1.0)
@@ -230,7 +325,17 @@ enable_cache = True  # Cache results for faster regeneration
 ### Environment Setup
 ```bash
 # Create .env file
+# Choose your LLM
+DEFAULT_LLM=gemini  # or "llama" for local model
+
+# Gemini Configuration (if using Gemini)
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL_NAME=gemini-2.0-flash-exp  # Gemini 2.0 Flash (recommended)
+
+# LLaMA Configuration (if using local model)
 LLAMA_MODEL_PATH=./models/llama-2-7b-chat.Q4_K_M.gguf
+
+# General settings
 CUDA_VISIBLE_DEVICES=0
 TRANSFORMERS_CACHE=./cache/transformers
 HF_HOME=./cache/huggingface

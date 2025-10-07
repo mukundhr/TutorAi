@@ -13,9 +13,13 @@ import config
 from preprocessing.pdf_extractor import PDFExtractor
 from preprocessing.text_cleaner import TextCleaner
 from preprocessing.chunker import TextChunker
+from question_generation.gemini_handler import GeminiHandler
 from question_generation.llama_handler import LlamaHandler
 from question_generation.saq_generator import SAQGenerator
 from question_generation.mcq_generator import MCQGenerator
+from rag.vector_store import VectorStore
+from rag.retriever import DocumentRetriever
+from rag.rag_generator import RAGQuestionGenerator
 from evaluation.metrics import QuestionEvaluator
 from evaluation.validator import QuestionValidator
 from utilities.cache_manager import CacheManager
@@ -34,26 +38,50 @@ st.set_page_config(
 # Initialize session state
 if 'questions' not in st.session_state:
     st.session_state.questions = []
+if 'gemini_model' not in st.session_state:
+    st.session_state.gemini_model = None
 if 'llama_model' not in st.session_state:
     st.session_state.llama_model = None
 if 'transformers_model' not in st.session_state:
     st.session_state.transformers_model = None
 if 'processing_complete' not in st.session_state:
     st.session_state.processing_complete = False
+if 'selected_llm' not in st.session_state:
+    st.session_state.selected_llm = config.DEFAULT_LLM
+if 'enable_rag' not in st.session_state:
+    st.session_state.enable_rag = True  # RAG enabled by default (refined version)
+if 'vector_store' not in st.session_state:
+    st.session_state.vector_store = None
+if 'rag_generator' not in st.session_state:
+    st.session_state.rag_generator = None
 
 def load_model():
     """Load models with caching"""
-    # Try to load LLaMA first, then fallback to transformers for SAQ
-    if st.session_state.llama_model is None:
-        with st.spinner("Loading LLaMA 2 7B model..."):
-            try:
-                st.session_state.llama_model = LlamaHandler()
-                st.success("[OK] LLaMA model loaded successfully!")
-            except Exception as e:
-                st.warning(f"LLaMA model failed to load: {str(e)}")
-                st.info("Will use transformers model for question generation instead.")
+    selected_llm = st.session_state.selected_llm
     
-    # Always ensure we have a model for SAQ generation
+    # Load the selected LLM for MCQ generation
+    if selected_llm == "gemini":
+        if st.session_state.gemini_model is None:
+            with st.spinner("Loading Gemini model..."):
+                try:
+                    st.session_state.gemini_model = GeminiHandler()
+                    st.success("[OK] Gemini model loaded successfully!")
+                except Exception as e:
+                    st.error(f"Gemini model failed to load: {str(e)}")
+                    st.info("Please check your GEMINI_API_KEY in .env file or switch to local LLaMA model.")
+                    return None
+    
+    elif selected_llm == "llama":
+        if st.session_state.llama_model is None:
+            with st.spinner("Loading LLaMA 2 7B model..."):
+                try:
+                    st.session_state.llama_model = LlamaHandler()
+                    st.success("[OK] LLaMA model loaded successfully!")
+                except Exception as e:
+                    st.warning(f"LLaMA model failed to load: {str(e)}")
+                    st.info("Will use transformers model for question generation instead.")
+    
+    # Always ensure we have a model for SAQ generation (Transformers)
     if st.session_state.transformers_model is None:
         with st.spinner("Loading Transformers model for SAQ generation..."):
             try:
@@ -72,9 +100,12 @@ def load_model():
             except Exception as e:
                 st.warning(f"Transformers model failed to load: {str(e)}")
                 st.info("Will use template questions if no other models are available.")
-                # Don't stop - the SAQ generator has template fallback
     
-    return st.session_state.llama_model or st.session_state.transformers_model
+    # Return the appropriate model for MCQ generation
+    if selected_llm == "gemini":
+        return st.session_state.gemini_model
+    else:
+        return st.session_state.llama_model or st.session_state.transformers_model
 
 def main():
     # Header
@@ -86,16 +117,44 @@ def main():
     with st.sidebar:
         st.header("Configuration")
         
+        # LLM Model Selection
+        st.subheader("🤖 LLM Selection")
+        llm_option = st.radio(
+            "Choose LLM for MCQ Generation:",
+            options=["gemini", "llama"],
+            format_func=lambda x: "Google Gemini (API)" if x == "gemini" else "Local LLaMA 2 7B",
+            index=0 if st.session_state.selected_llm == "gemini" else 1,
+            help="Gemini requires API key, LLaMA runs locally"
+        )
+        
+        # Update selected LLM if changed
+        if llm_option != st.session_state.selected_llm:
+            st.session_state.selected_llm = llm_option
+            # Clear the loaded models to force reload
+            st.session_state.gemini_model = None
+            st.session_state.llama_model = None
+            st.info(f"Switched to {llm_option.upper()}. Click 'Load Models' to initialize.")
+        
+        st.markdown("---")
+        
         # Model status
         st.subheader("Model Status")
         
-        # LLaMA status
-        if st.session_state.llama_model is not None:
-            st.success("[OK] LLaMA Model Loaded")
-        else:
-            st.info("⚬ LLaMA Model (Optional)")
+        # Show status based on selected LLM
+        if st.session_state.selected_llm == "gemini":
+            if st.session_state.gemini_model is not None:
+                st.success("[OK] Gemini Model Loaded")
+                model_info = st.session_state.gemini_model.get_model_info()
+                st.caption(f"Model: {model_info['model_name']}")
+            else:
+                st.info("⚬ Gemini Model (Not Loaded)")
+        else:  # llama
+            if st.session_state.llama_model is not None:
+                st.success("[OK] LLaMA Model Loaded")
+            else:
+                st.info("⚬ LLaMA Model (Not Loaded)")
         
-        # Transformers status
+        # Transformers status (for SAQ)
         if st.session_state.transformers_model is not None:
             model_info = st.session_state.transformers_model.get_model_info()
             st.success(f"[OK] Transformers: {model_info['loaded_model']}")
@@ -104,16 +163,36 @@ def main():
         else:
             st.info("⚬ Transformers Model (SAQ)")
         
-        # Show load button if no models are loaded
-        models_available = (st.session_state.llama_model is not None or 
-                          st.session_state.transformers_model is not None)
+        # Show load button if selected model is not loaded
+        selected_model_loaded = (
+            (st.session_state.selected_llm == "gemini" and st.session_state.gemini_model is not None) or
+            (st.session_state.selected_llm == "llama" and st.session_state.llama_model is not None)
+        )
+        transformers_loaded = st.session_state.transformers_model is not None
         
-        if not models_available:
+        if not selected_model_loaded or not transformers_loaded:
             if st.button("Load Models"):
                 load_model()
                 st.rerun()
         else:
             st.caption("[OK] Ready for question generation")
+        
+        st.markdown("---")
+        
+        # RAG Settings
+        st.subheader("🔍 RAG Settings")
+        enable_rag = st.checkbox(
+            "Enable RAG (Retrieval-Augmented Generation)",
+            value=st.session_state.enable_rag,
+            help="Use semantic search to retrieve relevant context from the entire document for better question generation"
+        )
+        if enable_rag != st.session_state.enable_rag:
+            st.session_state.enable_rag = enable_rag
+        
+        if enable_rag:
+            st.success("✓ RAG Enabled - Enhanced context retrieval active")
+        else:
+            st.info("RAG Disabled - Using standard chunking")
         
         st.markdown("---")
         
@@ -474,6 +553,23 @@ def generate_questions(pdf_path, num_saq, num_mcq, temperature, chunk_size, enab
         
         st.info(f"Created {len(chunks)} text chunks for processing")
         
+        # Step 4.5: Create vector store if RAG is enabled
+        vector_store = None
+        retriever = None
+        if st.session_state.enable_rag:
+            status_text.text("Building RAG vector store...")
+            progress_bar.progress(45)
+            
+            try:
+                vector_store = VectorStore()
+                vector_store.create_index(chunks)
+                retriever = DocumentRetriever(vector_store)
+                st.session_state.vector_store = vector_store
+                st.success("✓ RAG vector store created successfully!")
+            except Exception as e:
+                st.warning(f"RAG initialization failed: {str(e)}. Continuing without RAG.")
+                st.session_state.enable_rag = False
+        
         # Check cache
         cache_manager = CacheManager()
         cache_params = {
@@ -496,61 +592,129 @@ def generate_questions(pdf_path, num_saq, num_mcq, temperature, chunk_size, enab
             all_questions = []
             
             if num_saq > 0:
-                status_text.text(f"Generating {num_saq} Short Answer Questions with Transformers...")
+                status_text.text(f"Generating {num_saq} Short Answer Questions...")
                 progress_bar.progress(50)
                 
-                # Use transformers for SAQ generation
-                saq_generator = SAQGenerator()  # Will use transformers by default
+                # Check if RAG is enabled and use RAG generator
+                if st.session_state.enable_rag and retriever and (st.session_state.gemini_model or st.session_state.llama_model):
+                    st.info("Using RAG-enhanced SAQ generation")
+                    llm_for_rag = st.session_state.gemini_model or st.session_state.llama_model
+                    rag_gen = RAGQuestionGenerator(llm_for_rag, retriever)
+                    use_rag = True
+                else:
+                    # Use transformers for SAQ generation
+                    saq_generator = SAQGenerator()  # Will use transformers by default
+                    use_rag = False
                 
-                # Optimize chunk processing to ensure we get the requested number of questions
-                max_chunks_to_process = min(len(chunks), num_saq)  # Process up to num_saq chunks to get enough questions
-                questions_per_chunk = max(1, (num_saq + max_chunks_to_process - 1) // max_chunks_to_process)  # Ceiling division
+                # Process chunks dynamically until we have enough questions
+                # Start with fewer chunks but process more if needed
+                questions_per_chunk = 2  # Request 2 questions per chunk to be efficient
+                max_chunks_available = len(chunks)
+                chunks_processed = 0
                 
-                st.info(f"Processing {max_chunks_to_process} chunks for {num_saq} SAQ questions")
+                st.info(f"Generating {num_saq} SAQ questions...")
                 
-                for i, chunk in enumerate(chunks[:max_chunks_to_process]):
-                    status_text.text(f"Processing SAQ chunk {i+1}/{max_chunks_to_process} (Transformers)...")
+                # Process chunks until we have enough questions (with a safety limit)
+                max_iterations = min(max_chunks_available, num_saq * 2)  # Safety limit
+                
+                for i in range(max_iterations):
+                    if chunks_processed >= max_chunks_available:
+                        st.warning(f"Processed all {max_chunks_available} chunks but only got {len(all_questions)} SAQ questions")
+                        break
+                        
+                    if len(all_questions) >= num_saq:
+                        break
+                    
+                    chunk = chunks[chunks_processed]
+                    chunks_processed += 1
+                    
+                    if use_rag:
+                        status_text.text(f"Processing SAQ chunk {chunks_processed}/{max_chunks_available} ({len(all_questions)}/{num_saq} questions) (RAG-Enhanced)...")
+                    else:
+                        status_text.text(f"Processing SAQ chunk {chunks_processed}/{max_chunks_available} ({len(all_questions)}/{num_saq} questions) (Transformers)...")
                     
                     try:
-                        saq_questions = saq_generator.generate_questions(chunk, questions_per_chunk)
-                        all_questions.extend(saq_questions)
+                        if use_rag:
+                            saq_questions = rag_gen.generate_saq_with_rag(chunk, questions_per_chunk)
+                        else:
+                            saq_questions = saq_generator.generate_questions(chunk, questions_per_chunk)
                         
-                        # Stop early if we have enough questions
-                        if len(all_questions) >= num_saq:
-                            break
+                        if saq_questions:
+                            all_questions.extend(saq_questions)
+                        else:
+                            st.warning(f"No questions generated from chunk {chunks_processed}")
                             
                     except Exception as e:
-                        st.warning(f"Error processing SAQ chunk {i+1}: {str(e)}")
+                        st.warning(f"Error processing SAQ chunk {chunks_processed}: {str(e)}")
                         continue
                     
-                    progress_bar.progress(50 + (i + 1) * 20 // max_chunks_to_process)
+                    progress_bar.progress(50 + int((len(all_questions) / num_saq) * 20))
                 
                 # Trim to requested number
                 all_questions = all_questions[:num_saq]
                 
-                st.success(f"Generated {len(all_questions)} SAQ questions from {max_chunks_to_process} chunks")
+                st.success(f"✅ Generated {len(all_questions)} SAQ questions from {chunks_processed} chunks")
+                
+                if len(all_questions) < num_saq:
+                    st.warning(f"⚠️ Only generated {len(all_questions)} out of {num_saq} requested SAQ questions. Try using a longer document or reduce the number of questions.")
             
             # Step 6: Generate MCQs
             if num_mcq > 0:
-                if st.session_state.llama_model:
-                    status_text.text(f"Generating {num_mcq} Multiple Choice Questions with LLaMA...")
+                selected_llm = st.session_state.selected_llm
+                mcq_model = None
+                
+                if selected_llm == "gemini" and st.session_state.gemini_model:
+                    mcq_model = st.session_state.gemini_model
+                    model_name = "Gemini"
+                elif selected_llm == "llama" and st.session_state.llama_model:
+                    mcq_model = st.session_state.llama_model
+                    model_name = "LLaMA"
+                
+                if mcq_model:
+                    status_text.text(f"Generating {num_mcq} Multiple Choice Questions with {model_name}...")
                     progress_bar.progress(70)
                     
-                    mcq_generator = MCQGenerator(st.session_state.llama_model)
+                    # Check if RAG is enabled
+                    if st.session_state.enable_rag and retriever:
+                        st.info("Using RAG-enhanced MCQ generation")
+                        rag_gen_mcq = RAGQuestionGenerator(mcq_model, retriever)
+                        use_rag_mcq = True
+                    else:
+                        mcq_generator = MCQGenerator(mcq_model)
+                        use_rag_mcq = False
                     
-                    # Optimize chunk processing to ensure we get enough MCQ questions
-                    max_chunks_to_process = min(len(chunks), num_mcq + 2)  # Process a few extra chunks to ensure we get enough questions
-                    questions_per_chunk = max(1, (num_mcq + max_chunks_to_process - 1) // max_chunks_to_process)  # Ceiling division
+                    # Process chunks dynamically to get the requested number
+                    questions_per_chunk = 2  # Request 2 questions per chunk
+                    max_chunks_available = len(chunks)
+                    chunks_processed = 0
                     
-                    st.info(f"Processing {max_chunks_to_process} chunks for {num_mcq} MCQ questions")
+                    st.info(f"Generating {num_mcq} MCQ questions using {model_name}...")
                     
                     mcq_questions = []
-                    for i, chunk in enumerate(chunks[:max_chunks_to_process]):
-                        status_text.text(f"Processing MCQ chunk {i+1}/{max_chunks_to_process} (LLaMA)...")
+                    max_iterations = min(max_chunks_available, num_mcq * 2)  # Safety limit
+                    
+                    for i in range(max_iterations):
+                        if chunks_processed >= max_chunks_available:
+                            st.warning(f"Processed all {max_chunks_available} chunks but only got {len(mcq_questions)} MCQ questions")
+                            break
+                            
+                        if len(mcq_questions) >= num_mcq:
+                            break
+                        
+                        chunk = chunks[chunks_processed]
+                        chunks_processed += 1
+                        
+                        if use_rag_mcq:
+                            status_text.text(f"Processing MCQ chunk {chunks_processed}/{max_chunks_available} ({len(mcq_questions)}/{num_mcq} questions) ({model_name} + RAG)...")
+                        else:
+                            status_text.text(f"Processing MCQ chunk {chunks_processed}/{max_chunks_available} ({len(mcq_questions)}/{num_mcq} questions) ({model_name})...")
                         
                         try:
                             # Add timeout handling
-                            questions = mcq_generator.generate_questions(chunk, questions_per_chunk)
+                            if use_rag_mcq:
+                                questions = rag_gen_mcq.generate_mcq_with_rag(chunk, questions_per_chunk)
+                            else:
+                                questions = mcq_generator.generate_questions(chunk, questions_per_chunk)
                             mcq_questions.extend(questions)
                             
                             # Stop early if we have enough questions
@@ -559,18 +723,21 @@ def generate_questions(pdf_path, num_saq, num_mcq, temperature, chunk_size, enab
                                 break
                                 
                         except Exception as e:
-                            st.warning(f"Error processing chunk {i+1}: {str(e)}")
+                            st.warning(f"Error processing MCQ chunk {chunks_processed}: {str(e)}")
                             continue
                         
-                        progress_bar.progress(70 + (i + 1) * 20 // max_chunks_to_process)
+                        progress_bar.progress(70 + int((len(mcq_questions) / num_mcq) * 20))
                     
                     # Trim to requested number
                     mcq_questions = mcq_questions[:num_mcq]
                     all_questions.extend(mcq_questions)
                     
-                    st.success(f"Generated {len(mcq_questions)} MCQ questions from {max_chunks_to_process} chunks")
+                    st.success(f"✅ Generated {len(mcq_questions)} MCQ questions from {chunks_processed} chunks using {model_name}")
+                    
+                    if len(mcq_questions) < num_mcq:
+                        st.warning(f"⚠️ Only generated {len(mcq_questions)} out of {num_mcq} requested MCQ questions. Try using a longer document or reduce the number of questions.")
                 else:
-                    st.warning("MCQ generation requires LLaMA model. Only SAQ questions will be generated.")
+                    st.warning(f"MCQ generation requires {selected_llm.upper()} model. Please load the model first or only SAQ questions will be generated.")
                     progress_bar.progress(90)
             
             # Step 7: Validate questions

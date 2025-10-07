@@ -1,13 +1,24 @@
 """
 Multiple Choice Question (MCQ) generator
+Supports both Gemini and LLaMA models
 """
 import re
 from typing import List, Dict
 from .prompts import format_mcq_prompt, MCQ_SYSTEM_PROMPT
 
 class MCQGenerator:
-    def __init__(self, llama_handler):
-        self.llama = llama_handler
+    def __init__(self, llm_handler):
+        """
+        Initialize MCQ generator with an LLM handler
+        
+        Args:
+            llm_handler: Either GeminiHandler or LlamaHandler instance
+        """
+        self.llm = llm_handler
+        
+        # Detect which handler is being used
+        self.handler_type = type(llm_handler).__name__
+        print(f"[OK] MCQ Generator initialized with {self.handler_type}")
     
     def generate_questions(self, 
                           content: str, 
@@ -22,9 +33,9 @@ class MCQGenerator:
         prompt = format_mcq_prompt(content, num_questions)
         
         try:
-            print(f"Generating {num_questions} MCQs from {len(content)} characters...")
+            print(f"Generating {num_questions} MCQs from {len(content)} characters using {self.handler_type}...")
             
-            response = self.llama.generate(
+            response = self.llm.generate(
                 prompt=prompt,
                 system_prompt=MCQ_SYSTEM_PROMPT,
                 max_tokens=800,  # Reduced for faster generation

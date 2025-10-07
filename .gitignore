@@ -1,1 +1,45 @@
+# Large model files
 models/llama-2-7b-chat.Q4_K_M.gguf
+models/*.gguf
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+
+# Application data
+data/uploads/
+data/outputs/
+data/cache/
+data/vector_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
