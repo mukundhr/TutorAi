@@ -607,15 +607,15 @@ def generate_questions(pdf_path, num_saq, num_mcq, temperature, chunk_size, enab
                     use_rag = False
                 
                 # Process chunks dynamically until we have enough questions
-                # Start with fewer chunks but process more if needed
-                questions_per_chunk = 2  # Request 2 questions per chunk to be efficient
+                # Request more questions per chunk to ensure we meet the target
+                questions_per_chunk = 5  # Request 5 questions per chunk (LLM might return 2-3)
                 max_chunks_available = len(chunks)
                 chunks_processed = 0
                 
-                st.info(f"Generating {num_saq} SAQ questions...")
+                st.info(f"Generating {num_saq} SAQ questions... (Total chunks available: {max_chunks_available})")
                 
-                # Process chunks until we have enough questions (with a safety limit)
-                max_iterations = min(max_chunks_available, num_saq * 2)  # Safety limit
+                # Process chunks until we have enough questions (with a generous safety limit)
+                max_iterations = min(max_chunks_available, max(num_saq * 4, 20))  # At least 20 chunks or 4x questions
                 
                 for i in range(max_iterations):
                     if chunks_processed >= max_chunks_available:
@@ -641,11 +641,14 @@ def generate_questions(pdf_path, num_saq, num_mcq, temperature, chunk_size, enab
                         
                         if saq_questions:
                             all_questions.extend(saq_questions)
+                            st.success(f"✓ Chunk {chunks_processed}: Got {len(saq_questions)} questions (Total: {len(all_questions)}/{num_saq})")
                         else:
-                            st.warning(f"No questions generated from chunk {chunks_processed}")
+                            st.warning(f"⚠ Chunk {chunks_processed}: No questions generated")
                             
                     except Exception as e:
-                        st.warning(f"Error processing SAQ chunk {chunks_processed}: {str(e)}")
+                        st.error(f"❌ Error in SAQ chunk {chunks_processed}: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
                         continue
                     
                     progress_bar.progress(50 + int((len(all_questions) / num_saq) * 20))
@@ -684,14 +687,14 @@ def generate_questions(pdf_path, num_saq, num_mcq, temperature, chunk_size, enab
                         use_rag_mcq = False
                     
                     # Process chunks dynamically to get the requested number
-                    questions_per_chunk = 2  # Request 2 questions per chunk
+                    questions_per_chunk = 5  # Request 5 questions per chunk (LLM might return 2-3)
                     max_chunks_available = len(chunks)
                     chunks_processed = 0
                     
-                    st.info(f"Generating {num_mcq} MCQ questions using {model_name}...")
+                    st.info(f"Generating {num_mcq} MCQ questions using {model_name}... (Total chunks available: {max_chunks_available})")
                     
                     mcq_questions = []
-                    max_iterations = min(max_chunks_available, num_mcq * 2)  # Safety limit
+                    max_iterations = min(max_chunks_available, max(num_mcq * 4, 20))  # At least 20 chunks or 4x questions
                     
                     for i in range(max_iterations):
                         if chunks_processed >= max_chunks_available:
@@ -715,15 +718,22 @@ def generate_questions(pdf_path, num_saq, num_mcq, temperature, chunk_size, enab
                                 questions = rag_gen_mcq.generate_mcq_with_rag(chunk, questions_per_chunk)
                             else:
                                 questions = mcq_generator.generate_questions(chunk, questions_per_chunk)
-                            mcq_questions.extend(questions)
+                            
+                            if questions:
+                                mcq_questions.extend(questions)
+                                st.success(f"✓ Chunk {chunks_processed}: Got {len(questions)} questions (Total: {len(mcq_questions)}/{num_mcq})")
+                            else:
+                                st.warning(f"⚠ Chunk {chunks_processed}: No questions generated")
                             
                             # Stop early if we have enough questions
                             if len(mcq_questions) >= num_mcq:
-                                st.info(f"Generated {len(mcq_questions)} questions, stopping early")
+                                st.info(f"✅ Generated {len(mcq_questions)} questions, stopping early")
                                 break
                                 
                         except Exception as e:
-                            st.warning(f"Error processing MCQ chunk {chunks_processed}: {str(e)}")
+                            st.error(f"❌ Error in MCQ chunk {chunks_processed}: {str(e)}")
+                            import traceback
+                            st.code(traceback.format_exc())
                             continue
                         
                         progress_bar.progress(70 + int((len(mcq_questions) / num_mcq) * 20))
