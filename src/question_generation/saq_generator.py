@@ -1,168 +1,262 @@
 """
-Short Answer Question (SAQ) generator using Transformers
+Short Answer Question (SAQ) generator
 """
 import re
 from typing import List, Dict
-from .prompts import format_saq_prompt, SAQ_SYSTEM_PROMPT
-from .transformers_handler import TransformersHandler
+from .prompts import SAQ_SYSTEM_PROMPT
 
 class SAQGenerator:
-    def __init__(self, model_handler=None):
-        self.model = None
-        self.llama = None
-        self.fallback_questions = []
-        
-        # Try to initialize transformers first
-        try:
-            self.model = TransformersHandler()
-            print("[OK] SAQ Generator: Using Transformers model")
-        except Exception as e:
-            print(f"[ERROR] SAQ Generator: Transformers failed - {str(e)}")
-            
-            # Fallback to provided handler (llama) if available
-            if model_handler:
-                self.llama = model_handler
-                print("[OK] SAQ Generator: Using LLaMA fallback")
-            else:
-                print("[WARNING] SAQ Generator: No models available, will use template questions")
-                self._initialize_fallback_questions()
+    def __init__(self, ai_handler):
+        self.ai = ai_handler
     
     def generate_questions(self, 
                           content: str, 
-                          num_questions: int = 3) -> List[Dict]:
-        """Generate short answer questions from content with fallback system"""
+                          num_questions: int = 5) -> List[Dict]:
+        """
+        Generate EXACTLY num_questions short answer questions
         
-        # Try transformers first
-        if self.model:
-            try:
-                print("Attempting question generation with Transformers...")
-                response = self._generate_with_transformers(content, num_questions)
-                print(f"[DEBUG] Transformers raw response: {response[:200]}...")
-                questions = self._parse_response(response)
-                if questions and len(questions) > 0:
-                    print(f"[OK] Generated {len(questions)} questions with Transformers")
-                    # Check if answers are generic
-                    generic_count = sum(1 for q in questions if "refer to" in q.get('answer', '').lower())
-                    if generic_count > 0:
-                        print(f"[WARNING] {generic_count} questions have generic answers, trying fallback...")
-                        raise Exception("Generic answers detected")
-                    return questions
-                else:
-                    print("[WARNING] Transformers generated empty questions, trying fallback...")
-            except Exception as e:
-                print(f"[ERROR] Transformers generation failed: {str(e)}, trying fallback...")
+        Args:
+            content: Text content to generate questions from
+            num_questions: Exact number of questions to generate
+            
+        Returns:
+            List of question dictionaries
+        """
         
-        # Try LLaMA if available
-        if self.llama:
-            try:
-                print("Attempting question generation with LLaMA...")
-                prompt = format_saq_prompt(content, num_questions)
-                response = self.llama.generate(
-                    prompt=prompt,
-                    system_prompt=SAQ_SYSTEM_PROMPT,
-                    max_tokens=800,
-                    temperature=0.7
-                )
-                questions = self._parse_response(response)
-                if questions and len(questions) > 0:
-                    print(f"[OK] Generated {len(questions)} questions with LLaMA")
-                    return questions
-                else:
-                    print("[WARNING] LLaMA generated empty questions, using template fallback...")
-            except Exception as e:
-                print(f"[ERROR] LLaMA generation failed: {str(e)}, using template fallback...")
+        print(f"\n{'='*60}")
+        print(f"🔄 GENERATING {num_questions} SHORT ANSWER QUESTIONS")
+        print(f"{'='*60}")
         
-        # Ultimate fallback: template questions
-        print("Using template questions as final fallback...")
-        return self._generate_fallback_questions(content, num_questions)
-    
-    def _generate_with_transformers(self, content: str, num_questions: int) -> str:
-        """Generate questions using transformers model"""
+        # Build enhanced prompt
+        prompt = self._build_prompt(content, num_questions)
         
-        # Create a focused prompt for question generation with actual content-based answers
-        prompt = f"""Based on this educational content, create {num_questions} short answer questions with complete answers:
+        # Enhanced system prompt
+        system_prompt = """You are an expert educational content creator specializing in short answer questions.
 
---- CONTENT ---
-{content[:800]}
---- END CONTENT ---
+CRITICAL RULES:
+1. You MUST generate EXACTLY the number of questions requested
+2. Each question MUST have both Q: and A: parts
+3. Number them clearly (Q1/A1, Q2/A2, etc.)
+4. Do NOT stop until you have completed ALL questions
+5. Each answer should be 2-4 sentences long"""
+        
+        try:
+            # Generate with high token limit
+            print(f"📤 Sending prompt to AI...")
+            response = self.ai.generate(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=2000,  # High limit to avoid truncation
+                temperature=0.7
+            )
+            
+            print(f"📥 Response received: {len(response)} characters")
+            
+            # Parse response
+            questions = self._parse_response(response)
+            
+            print(f"✅ Successfully parsed {len(questions)} questions")
+            
+            # If we didn't get enough, try retry
+            if len(questions) < num_questions:
+                print(f"⚠️  Only got {len(questions)}/{num_questions} questions")
+                print(f"🔄 Attempting retry for {num_questions - len(questions)} more...")
+                
+                # Retry for remaining questions
+                remaining = num_questions - len(questions)
+                retry_questions = self._retry_generation(content, remaining, len(questions))
+                questions.extend(retry_questions)
+                
+                print(f"✅ After retry: Total {len(questions)} questions")
+            
+            # Return exactly what was requested (trim if we got too many)
+            final_questions = questions[:num_questions]
+            
+            print(f"{'='*60}")
+            print(f"✅ FINAL: Returning {len(final_questions)} SAQs")
+            print(f"{'='*60}\n")
+            
+            return final_questions
+            
+        except Exception as e:
+            print(f"❌ Error generating SAQs: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def _build_prompt(self, content: str, num_questions: int) -> str:
+        """Build an enhanced prompt that emphasizes exact count"""
+        
+        prompt = f"""Based on the following lecture content, you MUST generate EXACTLY {num_questions} short answer questions.
+
+⚠️ CRITICAL REQUIREMENT: Generate ALL {num_questions} questions. Do NOT stop early!
+
+Lecture Content:
+{content}
 
 Instructions:
-1. Create questions that test understanding of the key concepts
-2. Provide complete, factual answers based ONLY on the content above
-3. Each answer should be 1-2 sentences with specific information from the text
-4. Format exactly as shown below:
+1. Generate EXACTLY {num_questions} complete questions
+2. Each question must have BOTH Q: and A: parts
+3. Number them sequentially (Q1/A1, Q2/A2, Q3/A3, etc.)
+4. Questions should test understanding, not just recall
+5. Answers should be 2-4 sentences long
+6. Make questions specific and clear
 
-Q1: What is [specific concept from content]?
-A1: [Complete answer with facts from the content]
+Required Format (FOLLOW THIS EXACTLY):
 
-Q2: How does [another concept] work?
-A2: [Complete answer with facts from the content]
+Q1: [Write your first question here - make it specific and test understanding]
+A1: [Write a complete 2-4 sentence answer here that thoroughly addresses the question]
 
-Begin:
-Q1:"""
+Q2: [Write your second question here - make it different from Q1]
+A2: [Write a complete 2-4 sentence answer here]
+
+Q3: [Write your third question here]
+A3: [Write a complete 2-4 sentence answer here]
+
+Q4: [Write your fourth question here]
+A4: [Write a complete 2-4 sentence answer here]
+
+Q5: [Write your fifth question here]
+A5: [Write a complete 2-4 sentence answer here]
+
+(Continue this pattern until you have written ALL {num_questions} questions)
+
+NOW GENERATE ALL {num_questions} QUESTIONS:"""
         
-        response = self.model.generate(
-            prompt=prompt,
-            max_tokens=600,
-            temperature=0.7,
-            top_p=0.9
-        )
-        
-        # Ensure we have the Q1: prefix for parsing
-        if not response.startswith("Q"):
-            response = "Q1:" + response
-            
-        return response
+        return prompt
     
-    def _parse_response(self, response: str) -> List[Dict]:
-        """Parse model response into structured questions with improved parsing"""
+    def _retry_generation(self, content: str, num_remaining: int, start_number: int) -> List[Dict]:
+        """Retry generation for remaining questions"""
+        
+        retry_prompt = f"""You need to generate {num_remaining} MORE short answer questions from this content.
+
+Content: {content}
+
+IMPORTANT: Start numbering from Q{start_number + 1}.
+
+Generate {num_remaining} additional questions now:
+
+Q{start_number + 1}: [Question]
+A{start_number + 1}: [Answer]
+
+(Continue for all {num_remaining} questions)
+
+Generate now:"""
+        
+        try:
+            response = self.ai.generate(
+                prompt=retry_prompt,
+                system_prompt="Generate the exact number of questions requested. Complete ALL questions.",
+                max_tokens=1500,
+                temperature=0.7
+            )
+            
+            return self._parse_response(response, offset=start_number)
+            
+        except Exception as e:
+            print(f"❌ Retry failed: {e}")
+            return []
+    
+    def _parse_response(self, response: str, offset: int = 0) -> List[Dict]:
+        """
+        Parse AI response into structured questions
+        
+        Args:
+            response: Raw AI response text
+            offset: Number offset for question numbering
+            
+        Returns:
+            List of parsed questions
+        """
         questions = []
         
-        # Clean up the response
-        response = response.strip()
+        print(f"🔍 Parsing response (offset={offset})...")
         
-        # Split by question markers (more flexible patterns)
-        parts = re.split(r'(?=Q\d*[:)]\s*)', response)
+        # Strategy 1: Match numbered Q/A pairs (most reliable)
+        # Pattern: Q1: ... A1: ... Q2: ... A2: ...
+        q_pattern = r'Q(\d+)[:\)]\s*(.+?)(?=\s*A\1[:\)]|\s*Q\d+[:\)]|$)'
+        a_pattern = r'A(\d+)[:\)]\s*(.+?)(?=\s*Q\d+[:\)]|$)'
+        
+        # Find all Q matches
+        q_matches = list(re.finditer(q_pattern, response, re.DOTALL | re.IGNORECASE))
+        print(f"  Found {len(q_matches)} Q: markers")
+        
+        # Find all A matches  
+        a_matches = list(re.finditer(a_pattern, response, re.DOTALL | re.IGNORECASE))
+        print(f"  Found {len(a_matches)} A: markers")
+        
+        # Build dictionaries by number
+        q_dict = {}
+        for match in q_matches:
+            num = int(match.group(1))
+            text = match.group(2).strip()
+            # Clean up text
+            text = re.sub(r'\s+', ' ', text)
+            text = text.strip()
+            if len(text) > 10:  # Valid question
+                q_dict[num] = text
+        
+        a_dict = {}
+        for match in a_matches:
+            num = int(match.group(1))
+            text = match.group(2).strip()
+            # Clean up text
+            text = re.sub(r'\s+', ' ', text)
+            text = text.strip()
+            if len(text) > 15:  # Valid answer
+                a_dict[num] = text
+        
+        # Combine Q&A pairs
+        for num in sorted(q_dict.keys()):
+            if num in a_dict:
+                questions.append({
+                    'type': 'Short Answer',
+                    'question': q_dict[num],
+                    'answer': a_dict[num],
+                    'points': 5
+                })
+                print(f"  ✓ Paired Q{num} with A{num}")
+        
+        # Strategy 2: If Strategy 1 found nothing, try simpler split
+        if not questions:
+            print(f"  ⚠️  Strategy 1 failed, trying fallback parsing...")
+            questions = self._fallback_parse(response)
+        
+        print(f"  📊 Total parsed: {len(questions)} questions")
+        
+        return questions
+    
+    def _fallback_parse(self, response: str) -> List[Dict]:
+        """Fallback parsing strategy for less structured responses"""
+        questions = []
+        
+        # Split by Q markers (less strict)
+        parts = re.split(r'(?=Q\d*[:\)])', response, flags=re.IGNORECASE)
         
         for part in parts:
             part = part.strip()
-            if not part or len(part) < 10:
+            if len(part) < 30:  # Too short to be a valid Q&A
                 continue
             
-            # Extract question with more flexible patterns
-            q_match = re.search(r'Q\d*[:)]\s*(.+?)(?=\n\s*A\d*[:)]|A\d*[:)]|$)', part, re.DOTALL)
-            # Extract answer with more flexible patterns
-            a_match = re.search(r'A\d*[:)]\s*(.+?)(?=\n\s*Q\d*[:)]|Q\d*[:)]|$|---)', part, re.DOTALL)
+            # Try to extract Q and A
+            q_match = re.search(r'Q\d*[:\)]\s*(.+?)(?=A\d*[:\)]|$)', part, re.DOTALL | re.IGNORECASE)
+            a_match = re.search(r'A\d*[:\)]\s*(.+?)(?=Q\d*[:\)]|$)', part, re.DOTALL | re.IGNORECASE)
             
             if q_match:
-                question_text = q_match.group(1).strip()
-                # Clean up question text
-                question_text = re.sub(r'\n+', ' ', question_text).strip()
+                q_text = q_match.group(1).strip()
+                q_text = re.sub(r'\s+', ' ', q_text)
                 
-                # Get answer text
+                a_text = ""
                 if a_match:
-                    answer_text = a_match.group(1).strip()
-                    # Clean up answer text
-                    answer_text = re.sub(r'\n+', ' ', answer_text).strip()
-                    # Remove any trailing question markers
-                    answer_text = re.sub(r'Q\d*[:)].+$', '', answer_text).strip()
-                else:
-                    answer_text = "Answer not available in the generated response"
+                    a_text = a_match.group(1).strip()
+                    a_text = re.sub(r'\s+', ' ', a_text)
                 
-                # Validate that we have meaningful content
-                if len(question_text) > 5 and len(answer_text) > 5:
-                    # Ensure question ends with question mark
-                    if not question_text.endswith('?'):
-                        question_text += '?'
-                    
-                    # Ensure answer ends with period
-                    if not answer_text.endswith('.') and not answer_text.endswith('!'):
-                        answer_text += '.'
-                    
+                # Validate
+                if len(q_text) > 10 and len(a_text) > 15:
                     questions.append({
                         'type': 'Short Answer',
-                        'question': question_text,
-                        'answer': answer_text,
+                        'question': q_text,
+                        'answer': a_text,
                         'points': 5
                     })
         
@@ -170,121 +264,41 @@ Q1:"""
     
     def generate_from_chunks(self, 
                             chunks: List[str], 
-                            questions_per_chunk: int = 2) -> List[Dict]:
-        """Generate questions from multiple text chunks"""
-        all_questions = []
+                            total_questions: int = 5) -> List[Dict]:
+        """
+        Generate questions from multiple chunks
+        DEPRECATED: Better to combine chunks first
+        """
+        print(f"⚠️  WARNING: generate_from_chunks is deprecated")
+        print(f"   Recommendation: Combine chunks and use generate_questions()")
         
-        for i, chunk in enumerate(chunks):
-            print(f"Processing chunk {i+1}/{len(chunks)}...")
-            questions = self.generate_questions(chunk, questions_per_chunk)
-            all_questions.extend(questions)
+        # Combine chunks
+        combined = ' '.join(chunks[:5])
+        if len(combined) > 3000:
+            combined = combined[:3000]
         
-        return all_questions
+        # Generate from combined content
+        return self.generate_questions(combined, total_questions)
     
     def validate_question(self, question: Dict) -> bool:
         """Validate if a question meets quality criteria"""
         q_text = question.get('question', '')
         a_text = question.get('answer', '')
         
-        # Basic validation
-        if len(q_text) < 10 or len(a_text) < 10:
+        # Must have both parts
+        if not q_text or not a_text:
             return False
         
-        # Check if question ends with question mark
+        # Minimum lengths
+        if len(q_text) < 10 or len(a_text) < 15:
+            return False
+        
+        # Question should end with ?
         if not q_text.strip().endswith('?'):
             return False
         
-        # Check if answer is substantial
+        # Answer should have at least 5 words
         if len(a_text.split()) < 5:
             return False
         
         return True
-    
-    def _initialize_fallback_questions(self):
-        """Initialize template questions for when no models are available"""
-        self.fallback_questions = [
-            {
-                'type': 'Short Answer',
-                'question': 'What are the main concepts discussed in this content?',
-                'answer': 'Please refer to the key points mentioned in the text.',
-                'points': 5
-            },
-            {
-                'type': 'Short Answer', 
-                'question': 'Explain the significance of the topics covered.',
-                'answer': 'The content covers important foundational concepts.',
-                'points': 5
-            },
-            {
-                'type': 'Short Answer',
-                'question': 'What practical applications can be derived from this material?',
-                'answer': 'Various applications can be identified based on the content.',
-                'points': 5
-            }
-        ]
-    
-    def _generate_fallback_questions(self, content: str, num_questions: int) -> List[Dict]:
-        """Generate questions with actual content-based answers when models fail"""
-        questions = []
-        
-        # Extract meaningful sentences from content
-        sentences = [s.strip() for s in content.split('.') if len(s.strip()) > 20]
-        
-        # Extract key terms and their context
-        import re
-        words = content.split()
-        key_terms = [word.strip('.,!?()') for word in words if len(word) > 6 and word.isalpha()]
-        
-        # Create more intelligent questions based on content
-        for i in range(min(num_questions, 5)):
-            if i < len(sentences) and sentences[i]:
-                sentence = sentences[i][:200]  # Limit length
-                
-                # Extract key concepts from the sentence
-                if i < len(key_terms):
-                    term = key_terms[i]
-                    
-                    # Try to find sentences containing the term for better answers
-                    answer_sentences = [s for s in sentences if term.lower() in s.lower()]
-                    if answer_sentences:
-                        answer = answer_sentences[0][:150].strip()
-                        if not answer.endswith('.'):
-                            answer += '.'
-                    else:
-                        answer = sentence[:100].strip()
-                        if not answer.endswith('.'):
-                            answer += '.'
-                    
-                    question = f"What is {term} and how is it defined in the context?"
-                else:
-                    # Create questions from content structure
-                    if 'definition' in sentence.lower() or 'is' in sentence.lower():
-                        # Extract the subject being defined
-                        words_in_sent = sentence.split()
-                        if len(words_in_sent) > 3:
-                            subject = words_in_sent[0] if len(words_in_sent[0]) > 3 else words_in_sent[1]
-                            question = f"How is {subject} characterized or defined?"
-                            answer = sentence[:120].strip()
-                            if not answer.endswith('.'):
-                                answer += '.'
-                        else:
-                            question = "What are the key concepts discussed?"
-                            answer = sentence[:100].strip() + '.'
-                    else:
-                        question = f"What information is provided about the main topic?"
-                        answer = sentence[:100].strip()
-                        if not answer.endswith('.'):
-                            answer += '.'
-            else:
-                # Final fallback with generic but content-aware questions
-                question = f"What are the main points covered in this section?"
-                answer = "The content discusses various concepts and their relationships as outlined in the material."
-            
-            questions.append({
-                'type': 'Short Answer',
-                'question': question,
-                'answer': answer,
-                'points': 5
-            })
-        
-        return questions

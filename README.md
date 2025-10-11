@@ -1,32 +1,32 @@
-# 🎓 AI Tutor - Intelligent Question Generation System
+#  AI Tutor - Intelligent Question Generation System
 
 
 An advanced AI-powered question generation system that automatically creates **Short Answer Questions (SAQ)** and **Multiple Choice Questions (MCQ)** from educational content. Built with a robust dual-model architecture and comprehensive fallback system for maximum reliability.
 
-## ✨ Key Features
+##  Key Features
 
-### 🤖 **Dual AI Architecture with Multiple LLM Options**
-- **🌟 Google Gemini 2.0 Flash** - Main LLM for high-quality MCQ generation (API-based, fast & efficient)
-- **🦙 LLaMA 2 7B Quantized** - Alternative local LLM for MCQ generation
-- **🔄 Transformers Models** - For SAQ generation (Hugging Face)
-- **🛡️ Smart Fallback System** - Always generates questions, never fails
-- **⚙️ Easy Switching** - Toggle between Gemini and LLaMA in the UI
+###  **Dual AI Architecture with Multiple LLM Options**
+- **Google Gemini 2.0 Flash** - Main LLM for high-quality MCQ generation (API-based, fast & efficient)
+- **LLaMA 2 7B Quantized** - Alternative local LLM for MCQ generation
+- **Transformers Models** - For SAQ generation (Hugging Face)
+- **Smart Fallback System** - Always generates questions, never fails
+- **Easy Switching** - Toggle between Gemini and LLaMA in the UI
 
-### 📚 **Question Generation**
-- **📝 Short Answer Questions** - Educational, contextual questions
-- **🎯 Multiple Choice Questions** - Structured A/B/C/D format with explanations
-- **⚡ Fast Processing** - Optimized chunk processing (3-5 chunks vs 74+)
-- **🎛️ Customizable Settings** - Temperature, chunk size, question count
+###  **Question Generation**
+- **Short Answer Questions** - Educational, contextual questions
+- **Multiple Choice Questions** - Structured A/B/C/D format with explanations
+- **Fast Processing** - Optimized chunk processing (3-5 chunks vs 74+)
+- **Customizable Settings** - Temperature, chunk size, question count
 
-### 🔧 **Advanced Features**
-- **📄 PDF Processing** - Extract text from lecture notes, textbooks
-- **🧹 Text Preprocessing** - Intelligent cleaning and chunking
-- **� RAG (Retrieval-Augmented Generation)** - Semantic search across the entire document for enhanced context
-- **�💾 Smart Caching** - Avoid regenerating same content
-- **📊 Quality Analytics** - ROUGE score, BERT score, diversity metrics
-- **📤 Multiple Export Formats** - JSON, CSV, TXT, Moodle XML
+###  **Advanced Features**
+- **PDF Processing** - Extract text from lecture notes, textbooks
+- **Text Preprocessing** - Intelligent cleaning and chunking
+- **RAG (Retrieval-Augmented Generation)** - Semantic search across the entire document for enhanced context
+- **Smart Caching** - Avoid regenerating same content
+- **Quality Analytics** - ROUGE score, BERT score, diversity metrics
+- **Multiple Export Formats** - JSON, CSV, TXT, Moodle XML
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 - **Python 3.8+** (3.10+ recommended)
@@ -83,67 +83,7 @@ An advanced AI-powered question generation system that automatically creates **S
    - Select your preferred LLM (Gemini or LLaMA) in the sidebar
    - Upload a PDF and start generating questions!
 
-## 🏗️ System Architecture
 
-### Model Hierarchy & Fallback System
-
-```
-┌─────────────────────────────────────────┐
-│            PDF Upload                   │
-│       (Lecture Notes/Textbooks)        │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│         Text Processing Pipeline        │
-│  ┌─────────┐ ┌─────────┐ ┌─────────────┐│
-│  │   PDF   │ │  Text   │ │ Intelligent ││
-│  │Extract  │→│Cleaning │→│  Chunking   ││
-│  └─────────┘ └─────────┘ └─────────────┘│
-└─────────────────┬───────────────────────┘
-                  │
-        ┌─────────▼─────────┐
-        │   Smart Router    │
-        │ (3-5 chunks max)  │
-        └─────┬─────────┬───┘
-              │         │
-    ┌─────────▼──┐   ┌──▼──────────┐
-    │    SAQ     │   │     MCQ     │
-    │Generation  │   │ Generation  │
-    └─────┬──────┘   └──┬──────────┘
-          │             │
-┌─────────▼──────┐   ┌──▼──────────┐
-│ Transformers   │   │   LLaMA 2   │
-│ Fallback Chain │   │   7B Chat   │
-│                │   │             │
-│ 1.DialoGPT-med │   │ • GGUF      │
-│ 2.GPT2-medium  │   │ • Quantized │
-│ 3.GPT2         │   │ • Local     │
-│ 4.DistilGPT2   │   │             │
-│ 5.OPT-125m     │   │             │
-│ 6.Templates    │   │ Fallback:   │
-│                │   │ Templates   │
-└─────────┬──────┘   └──┬──────────┘
-          │             │
-          └─────┬───────┘
-                │
-┌───────────────▼───────────────┐
-│      Quality Assurance       │
-│                              │
-│ • Question validation        │
-│ • Format verification        │
-│ • Content quality check      │
-│ • Answer completeness        │
-└───────────────┬───────────────┘
-                │
-┌───────────────▼───────────────┐
-│     Export & Analytics       │
-│                              │
-│ • JSON/CSV/TXT/XML export    │
-│ • ROUGE/BERT quality scores  │
-│ • Diversity analysis         │
-│ • Performance metrics        │
-└──────────────────────────────┘
-```
 
 ### Reliability Strategy
 
@@ -158,29 +98,29 @@ An advanced AI-powered question generation system that automatically creates **S
 
 ### Google Gemini (Recommended)
 **Pros:**
-- ✅ Higher quality questions
-- ✅ Faster generation (API-based)
-- ✅ No local storage needed
-- ✅ Free tier available
-- ✅ No GPU required
+-  Higher quality questions
+-  Faster generation (API-based)
+-  No local storage needed
+-  Free tier available
+-  No GPU required
 
 **Cons:**
-- ❌ Requires internet connection
-- ❌ Needs API key
-- ❌ Usage limits on free tier
+-  Requires internet connection
+-  Needs API key
+-  Usage limits on free tier
 
 ### Local LLaMA 2 7B
 **Pros:**
-- ✅ Complete privacy (runs locally)
-- ✅ No internet required
-- ✅ No API costs
-- ✅ Unlimited usage
+-  Complete privacy (runs locally)
+-  No internet required
+-  No API costs
+-  Unlimited usage
 
 **Cons:**
-- ❌ Large model file (~4GB)
-- ❌ Slower generation
-- ❌ Requires more RAM
-- ❌ GPU recommended for speed
+-  Large model file (~4GB)
+-  Slower generation
+-  Requires more RAM
+-  GPU recommended for speed
 
 ### Switching Between LLMs
 You can easily switch between Gemini and LLaMA:
@@ -189,14 +129,14 @@ You can easily switch between Gemini and LLaMA:
 3. Click "Load Models"
 4. Start generating questions!
 
-## 🔍 RAG (Retrieval-Augmented Generation)
+##  RAG (Retrieval-Augmented Generation)
 
 ### What is RAG?
 RAG enhances question generation by using **semantic search** to find the most relevant context from the entire document, not just the current chunk. This results in:
-- ✅ **Better context understanding** - Questions aware of the full document
-- ✅ **More coherent questions** - Better connection between concepts
-- ✅ **Smarter distractors** - MCQ options that are more challenging and relevant
-- ✅ **Reduced hallucination** - Questions grounded in actual content
+-  **Better context understanding** - Questions aware of the full document
+-  **More coherent questions** - Better connection between concepts
+-  **Smarter distractors** - MCQ options that are more challenging and relevant
+-  **Reduced hallucination** - Questions grounded in actual content
 
 ### How it Works
 1. **Document Upload** → PDF text is extracted
@@ -227,7 +167,7 @@ RAG_MIN_SCORE=0.3  # Minimum similarity threshold
 
 **Recommendation:** Enable RAG for better quality questions, especially for complex or lengthy documents.
 
-## 📋 Technical Stack
+##  Technical Stack
 
 ### Core AI Libraries
 ```python
@@ -260,12 +200,12 @@ bert-score   # Semantic similarity
 scikit-learn   # ML utilities
 ```
 
-## 🎯 Usage Guide
+##  Usage Guide
 
 ### 1. **Upload Content**
-- 📄 **PDF Files**: Lecture notes, textbooks, research papers
-- 🔍 **Preview**: View extracted text and metadata
-- 📊 **Statistics**: Pages, characters, processing info
+-  **PDF Files**: Lecture notes, textbooks, research papers
+-  **Preview**: View extracted text and metadata
+-  **Statistics**: Pages, characters, processing info
 
 ### 2. **Configure Generation**
 ```python
@@ -315,12 +255,12 @@ enable_cache = True  # Cache results for faster regeneration
 ```
 
 ### 5. **Quality Analytics**
-- 📈 **Quality Score**: Overall question quality (0-100%)
-- 🎲 **Diversity Score**: Question variety measurement
-- 📊 **Type Distribution**: SAQ vs MCQ breakdown
-- 🏆 **ROUGE/BERT Scores**: Semantic quality metrics
+-  **Quality Score**: Overall question quality (0-100%)
+-  **Diversity Score**: Question variety measurement
+-  **Type Distribution**: SAQ vs MCQ breakdown
+-  **ROUGE/BERT Scores**: Semantic quality metrics
 
-## 🛠️ Configuration
+##  Configuration
 
 ### Environment Setup
 ```bash
@@ -364,42 +304,6 @@ torch_dtype = torch.float16   # Use half precision (GPU)
 device_map = "auto"          # Automatic device placement
 ```
 
-## 🚨 Troubleshooting
-
-### Common Issues & Solutions
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| **Out of Memory** | Large model + Limited RAM | Use smaller models (distilgpt2), reduce batch size |
-| **Model Loading Fails** | Network/disk issues | Check internet, verify model files |
-| **Slow Generation** | CPU processing | Enable GPU support, reduce chunk count |
-| **Empty Questions** | Poor input text | Check PDF quality, increase temperature |
-| **Unicode Errors** | Windows encoding | Fixed in v1.1+ - uses ASCII-safe output |
-
-### Performance Optimization
-1. **🚀 Use GPU**: Set `CUDA_VISIBLE_DEVICES=0` and install CUDA
-2. **💾 Enable Caching**: Keep cache enabled for repeated content
-3. **⚡ Optimize Chunks**: Use 3-5 chunks max for faster processing
-4. **🎯 Smaller Models**: Use distilgpt2 for faster SAQ generation
-
-### Debug Mode
-```python
-# Enable verbose logging
-import  logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Check model status
-python -c "from src.question_generation.transformers_handler import TransformersHandler; h = TransformersHandler(); print(h.get_model_info())"
-```
-
-## 📊 Performance Metrics
-
-### Speed Benchmarks
-| Configuration | Processing Time | Memory Usage | Quality Score |
-|---------------|----------------|--------------|---------------|
-| **CPU Only** | ~60-90 seconds | 2-4 GB | 85-90% |
-| **GPU (8GB)** | ~20-30 seconds | 4-6 GB | 90-95% |
-| **GPU (16GB+)** | ~10-15 seconds | 6-8 GB | 95%+ |
 
 ### Model Comparison
 | Model | Size | Speed | Quality | Use Case |
@@ -408,65 +312,5 @@ python -c "from src.question_generation.transformers_handler import Transformers
 | **GPT-2** | ~500MB | Medium | Good | Fallback SAQ |
 | **LLaMA 2 7B** | ~4GB | Slower | Excellent | Primary MCQ |
 | **Templates** | ~0MB | Instant | Basic | Ultimate Fallback |
-
-
-### Project Structure
-```
-TutorAi/
-├── 📁 src/                          # Main source code
-│   ├── 🎯 app.py                    # Streamlit web interface
-│   ├── ⚙️ config.py                 # Configuration settings
-│   ├── 📁 preprocessing/             # Text processing
-│   │   ├── 📄 pdf_extractor.py      # PDF text extraction
-│   │   ├── 🧹 text_cleaner.py       # Text cleaning utilities
-│   │   └── ✂️ chunker.py            # Text chunking logic
-│   ├── 📁 question_generation/       # AI model handlers
-│   │   ├── 🤖 transformers_handler.py # Transformers integration
-│   │   ├── 🦙 llama_handler.py       # LLaMA model handler
-│   │   ├── 📝 saq_generator.py       # SAQ generation logic
-│   │   ├── 🎯 mcq_generator.py       # MCQ generation logic
-│   │   └── 💬 prompts.py            # Prompt templates
-│   ├── 📁 evaluation/                # Quality assessment
-│   │   ├── 📊 metrics.py            # Evaluation metrics
-│   │   └── ✅ validator.py          # Question validation
-│   └── 📁 utilities/                 # Helper functions
-│       ├── 💾 cache_manager.py      # Caching system
-│       └── 📤 export_handler.py     # Export utilities
-├── 📁 models/                       # Model storage
-├── 📁 data/                        # Application data
-│   ├── 📂 uploads/                  # User uploaded files
-│   ├── 📂 outputs/                  # Generated questions
-│   └── 📂 cache/                    # Cached results
-├── 📋 requirements.txt              # Python dependencies
-├── 🧪 test_setup.py                # Setup validation
-└── 📖 README.md                    # This documentation
-```
-
-### Adding New Models
-1. **Extend TransformersHandler**: 
-   ```python
-   self.model_hierarchy = [
-       "your-new-model",        # Add here
-       "microsoft/DialoGPT-medium",
-       # ... existing models
-   ]
-   ```
-
-2. **Test Integration**:
-   ```python
-   python -c "from src.question_generation.transformers_handler import TransformersHandler; TransformersHandler('your-model-name')"
-   ```
-
-
-
-## 🎯 System Requirements
-
-| Component | Minimum | Recommended | Optimal |
-|-----------|---------|-------------|---------|
-| **Python** | 3.8+ | 3.10+ | 3.11+ |
-| **RAM** | 4GB | 8GB | 16GB+ |
-| **Storage** | 5GB | 10GB | 20GB+ |
-| **GPU** | None (CPU) | 4GB VRAM | 8GB+ VRAM |
-| **OS** | Windows 10+, macOS 10.14+, Ubuntu 18.04+ | Latest versions | - |
 
 ---
