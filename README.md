@@ -9,7 +9,7 @@ An advanced AI-powered question generation system that automatically creates **S
 - **Google Gemini 2.0 Flash** - Main LLM for high-quality MCQ generation (API-based, fast & efficient)
 - **LLaMA 2 7B Quantized** - Alternative local LLM for MCQ generation
 - **Transformers Models** - For SAQ generation (Hugging Face)
-- **Smart Fallback System** - Always generates questions, never fails
+- **Smart Fallback System** - Uses different methods to generate questions even if one method fails
 - **Easy Switching** - Toggle between Gemini and LLaMA in the UI
 
 ###  **Question Generation**
@@ -53,9 +53,9 @@ An advanced AI-powered question generation system that automatically creates **S
    pip install -r requirements.txt
    ```
 
-3. **Configure your LLM (Choose one or both)**
+3. **Configure your LLM**
 
-   **Option A: Google Gemini (Recommended)**
+   **Google Gemini**
    - Get a free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Create a `.env` file in the project root
    - Add your API key:
@@ -64,7 +64,7 @@ An advanced AI-powered question generation system that automatically creates **S
      DEFAULT_LLM=gemini
      ```
 
-   **Option B: Local LLaMA 2**
+   **Local LLaMA 2**
    - Download the model from [Hugging Face](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF)
    - Place in `models/llama-2-7b-chat.Q4_K_M.gguf`
    - Set in `.env`:
@@ -79,7 +79,6 @@ An advanced AI-powered question generation system that automatically creates **S
    ```
 
 5. **Access the application**
-   - Open http://localhost:8501 in your browser
    - Select your preferred LLM (Gemini or LLaMA) in the sidebar
    - Upload a PDF and start generating questions!
 
@@ -92,42 +91,27 @@ An advanced AI-powered question generation system that automatically creates **S
 | **1** | **Google Gemini 2.0** | gemini-2.0-flash-exp | 98%+ | Primary MCQ Generation (API) |
 | **2** | **Local LLaMA** | llama-2-7b-chat.Q4_K_M.gguf | 90%+ | Alternative MCQ (Privacy) |
 | **3** | **Transformers** | DialoGPT → GPT-2 → DistilGPT-2 → OPT | 95%+ | SAQ Generation |
-| **4** | **Templates** | Rule-based generation | 100% | Ultimate Fallback |
 
-## 🎛️ LLM Selection Guide
+##  LLM Selection Guide
 
-### Google Gemini (Recommended)
-**Pros:**
--  Higher quality questions
--  Faster generation (API-based)
--  No local storage needed
--  Free tier available
--  No GPU required
+| Feature | Google Gemini (Recommended) | Local LLaMA 2 7B |
+|---------|----------------------------|------------------|
+| **Quality** | Higher quality | Good quality |
+| **Speed** | Faster (API) | Slower (local) |
+| **Internet** | Required | Not required* |
+| **Storage** | None | ~4GB model file |
+| **Cost** | Free tier + limits | No cost, unlimited |
+| **Setup** | API key only | Download 4GB model |
 
-**Cons:**
--  Requires internet connection
--  Needs API key
--  Usage limits on free tier
-
-### Local LLaMA 2 7B
-**Pros:**
--  Complete privacy (runs locally)
--  No internet required
--  No API costs
--  Unlimited usage
-
-**Cons:**
--  Large model file (~4GB)
--  Slower generation
--  Requires more RAM
--  GPU recommended for speed
+### Offline Usage
+**For complete offline operation:**
+1. Run once with internet (downloads transformers to cache)
+2. Download LLaMA model manually
+3. Use LLaMA for MCQ (not Gemini)
+4. All future runs work 100% offline
 
 ### Switching Between LLMs
-You can easily switch between Gemini and LLaMA:
-1. Open the sidebar in the app
-2. Select "Google Gemini (API)" or "Local LLaMA 2 7B"
-3. Click "Load Models"
-4. Start generating questions!
+In the app sidebar → Select LLM → Click "Load Models" → Generate questions!
 
 ##  RAG (Retrieval-Augmented Generation)
 
@@ -200,117 +184,3 @@ bert-score   # Semantic similarity
 scikit-learn   # ML utilities
 ```
 
-##  Usage Guide
-
-### 1. **Upload Content**
--  **PDF Files**: Lecture notes, textbooks, research papers
--  **Preview**: View extracted text and metadata
--  **Statistics**: Pages, characters, processing info
-
-### 2. **Configure Generation**
-```python
-# Question Settings
-num_saq = 5          # Short Answer Questions (0-20)
-num_mcq = 5          # Multiple Choice Questions (0-20)
-
-# RAG Settings
-enable_rag = True    # Enable semantic search for better context
-
-# Model Settings  
-temperature = 0.7    # Creativity level (0.1-1.0)
-chunk_size = 800     # Text chunk size (200-1500)
-
-# Performance Settings
-enable_cache = True  # Cache results for faster regeneration
-```
-
-### 3. **Question Generation Process**
-1. **Text Extraction** - PDF → Raw Text
-2. **Preprocessing** - Clean → Segment → Chunk
-3. **SAQ Generation** - Transformers model processing
-4. **MCQ Generation** - LLaMA model processing  
-5. **Validation** - Quality checks and filtering
-6. **Results** - Display with answers and explanations
-
-### 4. **Export Options**
-
-#### JSON Format
-```json
-{
-  "type": "Short Answer",
-  "question": "What are the key principles of machine learning?",
-  "answer": "Supervised learning, unsupervised learning, and reinforcement learning...",
-  "points": 5
-}
-```
-
-#### Moodle XML
-```xml
-<question type="essay">
-  <name><text>Machine Learning Principles</text></name>
-  <questiontext format="html">
-    <text>What are the key principles of machine learning?</text>
-  </questiontext>
-</question>
-```
-
-### 5. **Quality Analytics**
--  **Quality Score**: Overall question quality (0-100%)
--  **Diversity Score**: Question variety measurement
--  **Type Distribution**: SAQ vs MCQ breakdown
--  **ROUGE/BERT Scores**: Semantic quality metrics
-
-##  Configuration
-
-### Environment Setup
-```bash
-# Create .env file
-# Choose your LLM
-DEFAULT_LLM=gemini  # or "llama" for local model
-
-# Gemini Configuration (if using Gemini)
-GEMINI_API_KEY=your_api_key_here
-GEMINI_MODEL_NAME=gemini-2.0-flash-exp  # Gemini 2.0 Flash (recommended)
-
-# LLaMA Configuration (if using local model)
-LLAMA_MODEL_PATH=./models/llama-2-7b-chat.Q4_K_M.gguf
-
-# General settings
-CUDA_VISIBLE_DEVICES=0
-TRANSFORMERS_CACHE=./cache/transformers
-HF_HOME=./cache/huggingface
-```
-
-### Model Configuration
-```python
-# config.py customization
-MODEL_CONTEXT_LENGTH = 4096    # LLaMA context window
-MODEL_MAX_TOKENS = 512         # Maximum generation length
-MODEL_TEMPERATURE = 0.7        # Default creativity
-MAX_CHUNK_SIZE = 800          # Text chunk size
-MIN_CHUNK_SIZE = 200          # Minimum chunk size
-DEFAULT_NUM_SAQ = 5           # Default SAQ count
-DEFAULT_NUM_MCQ = 5           # Default MCQ count
-```
-
-### Performance Tuning
-```python
-# GPU Settings
-n_gpu_layers = 32             # GPU layers for LLaMA (0 = CPU only)
-n_threads = 4                 # CPU threads for processing
-
-# Memory Management  
-torch_dtype = torch.float16   # Use half precision (GPU)
-device_map = "auto"          # Automatic device placement
-```
-
-
-### Model Comparison
-| Model | Size | Speed | Quality | Use Case |
-|-------|------|-------|---------|----------|
-| **DialoGPT-medium** | ~400MB | Fast | Excellent | Primary SAQ |
-| **GPT-2** | ~500MB | Medium | Good | Fallback SAQ |
-| **LLaMA 2 7B** | ~4GB | Slower | Excellent | Primary MCQ |
-| **Templates** | ~0MB | Instant | Basic | Ultimate Fallback |
-
----

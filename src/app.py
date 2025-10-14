@@ -99,7 +99,8 @@ def load_model():
                     
             except Exception as e:
                 st.warning(f"Transformers model failed to load: {str(e)}")
-                st.info("Will use template questions if no other models are available.")
+                st.error("⚠️ SAQ generation will not be available. Only MCQ generation will work.")
+                st.info("💡 Tip: Make sure you have internet connection to download transformer models from Hugging Face.")
     
     # Return the appropriate model for MCQ generation
     if selected_llm == "gemini":
