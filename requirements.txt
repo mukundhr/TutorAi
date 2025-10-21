@@ -15,3 +15,5 @@ bert-score
 python-dotenv
 joblib
 plotly
+sentence-transformers
+faiss-cpu
