@@ -164,7 +164,7 @@ class TransformersHandler:
                 
                 # Adjust parameters for model compatibility
                 generation_kwargs = {
-                    "max_new_tokens": min(max_tokens, 512),  # Cap max tokens
+                    "max_new_tokens": min(max_tokens, 1024),  # Increased cap for more questions
                     "pad_token_id": self.tokenizer.eos_token_id,
                     "num_return_sequences": 1,
                     "early_stopping": True

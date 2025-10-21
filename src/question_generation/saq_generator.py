@@ -46,7 +46,7 @@ CRITICAL RULES:
             response = self.ai.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                max_tokens=2000,  # High limit to avoid truncation
+                max_tokens=3000,  # Very high limit to generate all questions at once
                 temperature=0.7
             )
             
@@ -57,17 +57,25 @@ CRITICAL RULES:
             
             print(f"✅ Successfully parsed {len(questions)} questions")
             
-            # If we didn't get enough, try retry
-            if len(questions) < num_questions:
+            # If we didn't get enough, try multiple retries
+            retry_attempts = 0
+            max_retries = 3  # Try up to 3 times
+            
+            while len(questions) < num_questions and retry_attempts < max_retries:
+                retry_attempts += 1
                 print(f"⚠️  Only got {len(questions)}/{num_questions} questions")
-                print(f"🔄 Attempting retry for {num_questions - len(questions)} more...")
+                print(f"🔄 Retry attempt {retry_attempts}/{max_retries} for {num_questions - len(questions)} more...")
                 
                 # Retry for remaining questions
                 remaining = num_questions - len(questions)
                 retry_questions = self._retry_generation(content, remaining, len(questions))
-                questions.extend(retry_questions)
                 
-                print(f"✅ After retry: Total {len(questions)} questions")
+                if retry_questions:
+                    questions.extend(retry_questions)
+                    print(f"✅ After retry {retry_attempts}: Total {len(questions)} questions")
+                else:
+                    print(f"⚠️  Retry {retry_attempts} returned no questions")
+                    break  # No point retrying if we got nothing
             
             # Return exactly what was requested (trim if we got too many)
             final_questions = questions[:num_questions]
@@ -147,7 +155,7 @@ Generate now:"""
             response = self.ai.generate(
                 prompt=retry_prompt,
                 system_prompt="Generate the exact number of questions requested. Complete ALL questions.",
-                max_tokens=1500,
+                max_tokens=2000,  # Increased for retry
                 temperature=0.7
             )
             

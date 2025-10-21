@@ -1,8 +1,6 @@
 """
 Preprocessing module for text extraction and cleaning
 """
-from .pdf_extractor import PDFExtractor
-from .text_cleaner import TextCleaner
-from .chunker import TextChunker
+from .prepro import TextPreprocessor
 
-__all__ = ['PDFExtractor', 'TextCleaner', 'TextChunker']
+__all__ = ['TextPreprocessor']

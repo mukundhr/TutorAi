@@ -13,10 +13,15 @@ An advanced AI-powered question generation system that automatically creates **S
 - **Easy Switching** - Toggle between Gemini and LLaMA in the UI
 
 ###  **Question Generation**
-- **Short Answer Questions** - Educational, contextual questions
+- **Short Answer Questions** - Educational, contextual questions with 4-5 line answers
 - **Multiple Choice Questions** - Structured A/B/C/D format with explanations
-- **Fast Processing** - Optimized chunk processing (3-5 chunks vs 74+)
-- **Customizable Settings** - Temperature, chunk size, question count
+- **Exact Question Count** - Get exactly the number of questions you request (e.g., 5 MCQs + 5 SAQs = 10 total)
+- **Three Difficulty Levels**:
+  - **Easy**: Direct recall, basic comprehension, definitions (answer clearly stated in text)
+  - **Medium**: Application of concepts, connecting ideas, some inference required
+  - **Hard**: Critical thinking, synthesis, evaluation, applying to new situations
+- **Fast Processing** - Combines chunks for better context
+- **Customizable Settings** - Temperature, chunk size, question count, difficulty
 
 ###  **Advanced Features**
 - **PDF Processing** - Extract text from lecture notes, textbooks
@@ -113,43 +118,6 @@ An advanced AI-powered question generation system that automatically creates **S
 ### Switching Between LLMs
 In the app sidebar → Select LLM → Click "Load Models" → Generate questions!
 
-##  RAG (Retrieval-Augmented Generation)
-
-### What is RAG?
-RAG enhances question generation by using **semantic search** to find the most relevant context from the entire document, not just the current chunk. This results in:
--  **Better context understanding** - Questions aware of the full document
--  **More coherent questions** - Better connection between concepts
--  **Smarter distractors** - MCQ options that are more challenging and relevant
--  **Reduced hallucination** - Questions grounded in actual content
-
-### How it Works
-1. **Document Upload** → PDF text is extracted
-2. **Vector Store Creation** → All chunks are embedded using `all-MiniLM-L6-v2` model
-3. **Semantic Search** → For each chunk, RAG retrieves the top 3 most relevant chunks
-4. **Enhanced Generation** → LLM uses both the current chunk + retrieved context
-5. **Better Questions** → Results in more comprehensive and accurate questions
-
-### Enabling RAG
-In the app sidebar:
-- ☑️ Check "Enable RAG (Retrieval-Augmented Generation)"
-- Questions will be marked as `rag_enhanced: true`
-
-### RAG Configuration
-In your `.env` file:
-```bash
-ENABLE_RAG=true
-RAG_EMBEDDING_MODEL=all-MiniLM-L6-v2  # Fast & lightweight
-RAG_TOP_K=3  # Number of relevant chunks to retrieve
-RAG_MIN_SCORE=0.3  # Minimum similarity threshold
-```
-
-### Performance Impact
-| Mode | Speed | Quality | Memory |
-|------|-------|---------|--------|
-| **Without RAG** | Fast | Good | Low |
-| **With RAG** | Slightly slower (~10-20% overhead) | Excellent | Medium (embeddings cached) |
-
-**Recommendation:** Enable RAG for better quality questions, especially for complex or lengthy documents.
 
 ##  Technical Stack
 
@@ -167,7 +135,6 @@ bitsandbytes   # Quantization support
 pdfplumber   # PDF text extraction
 spacy        # NLP processing
 nltk            # Natural language toolkit
-sentence-transformers  # Semantic embeddings
 ```
 
 ### Web Framework & UI
@@ -181,6 +148,5 @@ numpy         # Numerical computing
 ```python
 rouge-score   # Text quality metrics
 bert-score   # Semantic similarity
-scikit-learn   # ML utilities
 ```
 
