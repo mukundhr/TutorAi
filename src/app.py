@@ -18,6 +18,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from question_generation.llm_manager import LLMManager
 from preprocessing import TextPreprocessor
+from utilities import RAGManager
 
 # Page config
 st.set_page_config(
@@ -418,24 +419,125 @@ with tab2:
 with tab3:
     st.title("💬 Chat with Your PDF")
     
-    st.info("🚧 RAG-based chat feature coming soon! This will allow you to ask questions about your PDF and get contextual answers.")
-    
-    st.markdown("""
-    ### Planned Features:
-    - 🔍 Semantic search across document
-    - 💡 Context-aware answers
-    - 📍 Source citations with page numbers
-    - 💾 Conversation history
-    - 🎯 Follow-up questions
-    
-    ### How it will work:
-    1. Upload your PDF (same as question generation)
-    2. Ask any question about the content
-    3. Get accurate answers with source references
-    4. Have natural back-and-forth conversations
-    """)
-    
-    # Placeholder UI
-    st.text_input("Ask a question about your PDF...", placeholder="Ask any question about your PDF...", disabled=True)
-    st.button("Send", disabled=True, use_container_width=True)  
-    
+    # Check if PDF has been processed
+    if not st.session_state.chunks:
+        st.warning("⚠️ Please upload and process a PDF in the 'Question Generation' tab first!")
+        st.info("👈 Go to the first tab to upload your PDF")
+    else:
+        # Initialize RAG if not already done
+        if st.session_state.rag_manager is None:
+            if st.session_state.model_loaded:
+                with st.spinner("🔧 Initializing chat system..."):
+                    try:
+                        st.session_state.rag_manager = RAGManager(model_type="gemini")
+                        st.session_state.rag_manager.load_model()
+                        st.session_state.rag_manager.index_documents(st.session_state.chunks)
+                        st.success("✅ Chat system ready!")
+                    except Exception as e:
+                        st.error(f"❌ Failed to initialize chat: {e}")
+            else:
+                st.warning("⚠️ Please load a model in the sidebar first!")
+        
+        # Show document info
+        if st.session_state.rag_manager:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("📄 Document Chunks", len(st.session_state.chunks))
+            with col2:
+                total_words = sum(c['word_count'] for c in st.session_state.chunks)
+                st.metric("📝 Total Words", f"{total_words:,}")
+            
+            st.divider()
+            
+            # Chat interface
+            st.markdown("### 💭 Ask questions about your document")
+            
+            # Display chat history
+            if st.session_state.chat_history:
+                st.markdown("#### � Conversation History")
+                for i, msg in enumerate(st.session_state.chat_history):
+                    if msg['role'] == 'user':
+                        st.markdown(f"**🧑 You:** {msg['content']}")
+                    else:
+                        st.markdown(f"**🤖 Assistant:** {msg['content']}")
+                        
+                        # Show sources if available
+                        if 'sources' in msg and msg['sources']:
+                            with st.expander(f"📚 View {len(msg['sources'])} source(s)"):
+                                for j, source in enumerate(msg['sources'], 1):
+                                    st.markdown(f"**Source {j}** (Chunk {source['chunk_id']}):")
+                                    st.caption(source['text'])
+                    
+                    if i < len(st.session_state.chat_history) - 1:
+                        st.markdown("---")
+            
+            st.divider()
+            
+            # Input form
+            with st.form(key="chat_form", clear_on_submit=True):
+                user_question = st.text_input(
+                    "Your question:",
+                    placeholder="e.g., What are the main concepts explained in this document?",
+                    label_visibility="collapsed"
+                )
+                
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    submit = st.form_submit_button("🚀 Send", use_container_width=True, type="primary")
+                with col2:
+                    clear = st.form_submit_button("🗑️ Clear Chat", use_container_width=True)
+            
+            # Handle clear
+            if clear:
+                st.session_state.chat_history = []
+                st.rerun()
+            
+            # Handle question
+            if submit and user_question.strip():
+                # Add user message
+                st.session_state.chat_history.append({
+                    'role': 'user',
+                    'content': user_question
+                })
+                
+                # Get answer from RAG
+                with st.spinner("🤔 Thinking..."):
+                    try:
+                        response = st.session_state.rag_manager.chat(user_question)
+                        
+                        # Add assistant message
+                        st.session_state.chat_history.append({
+                            'role': 'assistant',
+                            'content': response['answer'],
+                            'sources': response['sources']
+                        })
+                        
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error: {e}")
+            
+            # Tips
+            st.divider()
+            with st.expander("💡 Tips for better answers"):
+                st.markdown("""
+                - **Be specific**: Ask about particular topics or concepts
+                - **One topic at a time**: Break complex questions into smaller ones
+                - **Reference the content**: Use terms from the document
+                - **Follow up**: Ask clarifying questions based on previous answers
+                
+                **Example questions:**
+                - "What is the definition of [concept]?"
+                - "How does [process] work?"
+                - "What are the key differences between [A] and [B]?"
+                - "Can you explain [topic] in simple terms?"
+                - "What are the main points about [subject]?"
+                """)
+        
+        # Re-index button if chunks change
+        if st.button("🔄 Re-index Document", help="Refresh the chat system with updated chunks"):
+            if st.session_state.rag_manager and st.session_state.chunks:
+                with st.spinner("Re-indexing..."):
+                    st.session_state.rag_manager.index_documents(st.session_state.chunks)
+                    st.session_state.chat_history = []
+                    st.success("✅ Document re-indexed! Chat history cleared.")
+                    st.rerun()
