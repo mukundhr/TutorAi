@@ -194,6 +194,9 @@ Generate EXACTLY {num_questions} questions now:"""
     def _generate_gemini(self, prompt: str, temperature: float) -> str:
         """Generate using Gemini"""
         try:
+            print(f"🔵 Calling Gemini with temperature={temperature}...")
+            print(f"📝 Prompt length: {len(prompt)} characters")
+            
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.types.GenerationConfig(
@@ -201,9 +204,18 @@ Generate EXACTLY {num_questions} questions now:"""
                     max_output_tokens=2048,
                 )
             )
-            return response.text
+            
+            result = response.text
+            print(f"✅ Gemini response length: {len(result)} characters")
+            
+            if not result:
+                print("⚠️ WARNING: Gemini returned empty response!")
+            
+            return result
         except Exception as e:
             print(f"❌ Gemini error: {e}")
+            import traceback
+            traceback.print_exc()
             return ""
     
     def _generate_llama(self, prompt: str, temperature: float) -> str:
@@ -226,12 +238,17 @@ Generate EXACTLY {num_questions} questions now:"""
         questions = []
         
         if not response:
+            print("❌ No response to parse!")
             return questions
+        
+        print(f"📄 Parsing {question_type} response ({len(response)} chars)...")
+        print(f"First 200 chars: {response[:200]}...")
         
         # Split by question markers
         parts = response.split('\n\n')
+        print(f"🔍 Found {len(parts)} parts after splitting by \\n\\n")
         
-        for part in parts:
+        for i, part in enumerate(parts):
             if not part.strip() or not part.startswith('Q'):
                 continue
             
@@ -243,10 +260,14 @@ Generate EXACTLY {num_questions} questions now:"""
                 
                 if q:
                     questions.append(q)
+                    print(f"✅ Successfully parsed question {len(questions)}")
+                else:
+                    print(f"⚠️ Failed to parse part {i}")
             except Exception as e:
-                print(f"⚠️ Parse error: {e}")
+                print(f"⚠️ Parse error on part {i}: {e}")
                 continue
         
+        print(f"📊 Total questions parsed: {len(questions)}")
         return questions
     
     def _parse_mcq(self, text: str) -> Optional[Dict]:

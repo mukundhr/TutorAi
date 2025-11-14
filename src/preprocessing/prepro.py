@@ -56,21 +56,24 @@ class TextPreprocessor:
             with pdfplumber.open(pdf_path) as pdf:
                 for i, page in enumerate(pdf.pages):
                     try:
-                        # Try standard extraction
+                        # Try standard extraction first
                         page_text = page.extract_text()
-                        if page_text and len(page_text.strip()) > 0:
+                        if page_text and len(page_text.strip()) > 50:
                             text += page_text + "\n\n"
                         else:
-                            # Try with layout preservation
-                            page_text = page.extract_text(layout=True)
-                            if page_text:
+                            # Try with layout preservation if standard fails
+                            page_text = page.extract_text(layout=True, x_tolerance=3, y_tolerance=3)
+                            if page_text and len(page_text.strip()) > 50:
                                 text += page_text + "\n\n"
                     except Exception as e:
                         print(f"⚠️ Page {i+1} extraction failed: {e}")
                         continue
             
             if len(text.strip()) > 100:  # Success threshold
-                print(f"✅ pdfplumber: Extracted {len(text)} characters")
+                print(f"✅ pdfplumber: Extracted {len(text)} characters from {len(pdf.pages)} pages")
+                # Clean up excessive whitespace before returning
+                text = re.sub(r' {3,}', ' ', text)  # Remove excessive spaces
+                text = re.sub(r'\n{4,}', '\n\n', text)  # Remove excessive newlines
                 return text
             else:
                 print("⚠️ pdfplumber extraction insufficient, trying fallback...")
@@ -147,6 +150,9 @@ class TextPreprocessor:
         if not text or len(text.strip()) == 0:
             return ""
         
+        # Remove control characters and weird unicode
+        text = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', text)
+        
         # Remove multiple newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
         
@@ -159,19 +165,32 @@ class TextPreprocessor:
         text = re.sub(r'\t+', ' ', text)
         
         # Fix common PDF artifacts
-        text = text.replace('', "'")  # Smart quotes
-        text = text.replace('', "'")
-        text = text.replace('', '"')
-        text = text.replace('', '"')
-        text = text.replace('', '-')  # Em dash
-        text = text.replace('', '-')  # En dash
+        text = text.replace(''', "'")  # Smart quotes
+        text = text.replace(''', "'")
+        text = text.replace('"', '"')
+        text = text.replace('"', '"')
+        text = text.replace('—', '-')  # Em dash
+        text = text.replace('–', '-')  # En dash
         
-        # Remove headers/footers (lines with <5 words at start/end of pages)
+        # Remove lines that are mostly non-alphabetic (likely OCR errors)
         lines = text.split('\n')
         cleaned_lines = []
         
         for i, line in enumerate(lines):
             line = line.strip()
+            
+            # Skip empty lines
+            if not line:
+                cleaned_lines.append('')
+                continue
+            
+            # Count alphabetic characters
+            alpha_chars = sum(c.isalpha() for c in line)
+            total_chars = len(line)
+            
+            # Skip lines with <30% alphabetic characters (likely garbage)
+            if total_chars > 5 and alpha_chars / total_chars < 0.3:
+                continue
             
             # Skip empty lines
             if not line:

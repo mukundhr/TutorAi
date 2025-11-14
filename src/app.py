@@ -82,7 +82,7 @@ def calculate_metrics(question: dict, source_text: str) -> dict:
 
 # Sidebar Configuration
 with st.sidebar:
-    st.header("⚙️ Configuration")
+    st.header("Configuration")
     
     # Model Selection
     model_type = st.selectbox(
@@ -109,7 +109,7 @@ with st.sidebar:
     st.divider()
     
     # Generation Settings
-    st.subheader("📝 Generation Settings")
+    st.subheader("Generation Settings")
     
     question_type = st.selectbox(
         "Question Type",
@@ -128,26 +128,26 @@ with st.sidebar:
     st.divider()
     
     # Chunk Settings
-    st.subheader("📄 Chunk Settings")
+    st.subheader("Chunk Settings")
     
-    chunk_size = st.number_input("Chunk size (characters)", 500, 2000, 1000, 100)
+    chunk_size = st.number_input("Chunk size (characters)", 500, 3000, 1500, 100)
     
     max_chunks = st.number_input("Max chunks to process", 1, 20, 5,
                                  help="Limits total questions generated")
 
 
 # Main Content - Tabs
-tab1, tab2, tab3 = st.tabs(["📝 Question Generation", "📊 Statistics & Feedback", "💬 Chat with PDF"])
+tab1, tab2, tab3 = st.tabs(["Question Generation", "Statistics & Feedback", "Chat with PDF"])
 
 # TAB 1: Question Generation
 with tab1:
-    st.title("🎓 TutorAI - Question Generator")
+    st.title("TutorAI - Question Generator")
     st.markdown("Generate educational questions from PDFs using AI")
     
     st.divider()
     
     # File Upload
-    uploaded_file = st.file_uploader("📤 Upload PDF", type=['pdf'])
+    uploaded_file = st.file_uploader("Upload PDF", type=['pdf'])
     
     if uploaded_file:
         temp_path = Path("temp_upload.pdf")
@@ -165,18 +165,22 @@ with tab1:
         if chunks:
             st.success(f"✅ {len(chunks)} chunks extracted")
             
+            # Debug: Show first chunk preview
+            with st.expander("🔍 Preview First Chunk (Debug)"):
+                st.text(chunks[0]['text'][:500])
+            
             # Show expected questions
             if question_type == "both":
-                st.info(f"📊 Will generate: {num_questions} MCQs + {num_questions} SAQs = {num_questions * 2} total")
+                st.info(f"Will generate: {num_questions} MCQs + {num_questions} SAQs = {num_questions * 2} total")
             elif question_type == "mcq":
-                st.info(f"📊 Will generate: {num_questions} MCQs")
+                st.info(f"Will generate: {num_questions} MCQs")
             else:
-                st.info(f"📊 Will generate: {num_questions} SAQs")
+                st.info(f"Will generate: {num_questions} SAQs")
             
             # Generate Button
-            if st.button("🚀 Generate Questions", type="primary", use_container_width=True):
+            if st.button("Generate Questions", type="primary", use_container_width=True):
                 if not st.session_state.model_loaded:
-                    st.error("⚠️ Please load a model first!")
+                    st.error("Please load a model first!")
                 else:
                     st.session_state.questions = []
                     progress = st.progress(0)
@@ -198,9 +202,13 @@ with tab1:
                                 combined_text, "mcq", num_questions, 
                                 difficulty, temperature
                             )
+                            
+                            if not mcqs:
+                                st.warning(f"⚠️ No MCQs generated. Check your API key or model connection.")
+                            
                             for q in mcqs:
                                 q['chunk_id'] = 'combined'
-                                q['metrics'] = calculate_metrics(q, combined_text[:2000])
+                                q['metrics'] = calculate_metrics(q, combined_text)
                                 st.session_state.questions.append(q)
                             current_step += 1
                             progress.progress(current_step / total_steps)
@@ -212,15 +220,21 @@ with tab1:
                                 combined_text, "saq", num_questions,
                                 difficulty, temperature
                             )
+                            
+                            if not saqs:
+                                st.warning(f"⚠️ No SAQs generated. Check your API key or model connection.")
+                            
                             for q in saqs:
                                 q['chunk_id'] = 'combined'
-                                q['metrics'] = calculate_metrics(q, combined_text[:2000])
+                                q['metrics'] = calculate_metrics(q, combined_text)
                                 st.session_state.questions.append(q)
                             current_step += 1
                             progress.progress(current_step / total_steps)
                     
                     except Exception as e:
                         st.error(f"❌ Error: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
                         progress.progress(1.0)
                     
                     status.text("✅ Complete!")
@@ -234,7 +248,7 @@ with tab1:
     # Display Questions
     if st.session_state.questions:
         st.divider()
-        st.subheader(f"📋 Questions ({len(st.session_state.questions)})")
+        st.subheader(f"Questions ({len(st.session_state.questions)})")
         
         filter_type = st.radio("Filter:", ["All", "MCQ", "SAQ"], horizontal=True)
         
@@ -266,12 +280,12 @@ with tab1:
         with col1:
             json_data = json.dumps([{k: v for k, v in q.items() if k not in ['chunk_id', 'rating', 'feedback']} 
                                    for q in st.session_state.questions], indent=2)
-            st.download_button("📥 JSON", json_data, "questions.json", "application/json", use_container_width=True)
+            st.download_button(" JSON", json_data, "questions.json", "application/json", use_container_width=True)
         
         with col2:
             df = pd.DataFrame(st.session_state.questions)
-            st.download_button("📥 CSV", df.to_csv(index=False), "questions.csv", "text/csv", use_container_width=True)
-        
+            st.download_button(" CSV", df.to_csv(index=False), "questions.csv", "text/csv", use_container_width=True)
+
         with col3:
             text_out = ""
             for i, q in enumerate(st.session_state.questions, 1):
@@ -284,20 +298,20 @@ with tab1:
                 else:
                     text_out += f"A: {q['answer']}\n"
                 text_out += "\n"
-            st.download_button("📥 TXT", text_out, "questions.txt", "text/plain", use_container_width=True)
+            st.download_button(" TXT", text_out, "questions.txt", "text/plain", use_container_width=True)
 
 
 # TAB 2: Statistics & Feedback
 with tab2:
-    st.title("📊 Statistics & Feedback")
+    st.title("Statistics & Feedback")
     
     if not st.session_state.questions:
-        st.info("📝 Generate questions first to provide feedback")
+        st.info("Generate questions first to provide feedback")
     else:
         # Overall Stats
-        st.header("📈 Overall Statistics")
-        
-        col1, col2, col3, col4 = st.columns(4)
+        st.header("Overall Statistics")
+
+        col1, col2, col3 = st.columns(3)
         
         mcq_count = sum(1 for q in st.session_state.questions if q['type'] == 'mcq')
         saq_count = sum(1 for q in st.session_state.questions if q['type'] == 'saq')
@@ -305,13 +319,12 @@ with tab2:
         col1.metric("Total Questions", len(st.session_state.questions))
         col2.metric("MCQs", mcq_count)
         col3.metric("SAQs", saq_count)
-        col4.metric("Chunks Used", len(set(q.get('chunk_id', '') for q in st.session_state.questions)))
         
         st.divider()
         
         # Quality Metrics
-        st.header("🎯 Quality Metrics")
-        
+        st.header("Quality Metrics")
+
         questions_with_metrics = [q for q in st.session_state.questions if 'metrics' in q]
         
         if questions_with_metrics:
@@ -328,7 +341,7 @@ with tab2:
             col4.metric("Avg Quality", f"{avg_quality:.3f}")
             
             # Distribution Charts
-            st.subheader("📊 Metric Distributions")
+            st.subheader(" Metric Distributions")
             
             col1, col2 = st.columns(2)
             
@@ -356,22 +369,11 @@ with tab2:
                                  x='Quality', nbins=20,
                                  title='Quality Score Distribution')
                 st.plotly_chart(fig, use_container_width=True)
-            
-            # Radar chart for average metrics
-            fig = go.Figure()
-            fig.add_trace(go.Scatterpolar(
-                r=[avg_bleu, avg_rouge, avg_bert, avg_quality],
-                theta=['BLEU', 'ROUGE', 'BERT Score', 'Overall Quality'],
-                fill='toself',
-                name='Average Scores'
-            ))
-            fig.update_layout(title='Average Metric Scores', polar=dict(radialaxis=dict(range=[0, 1])))
-            st.plotly_chart(fig, use_container_width=True)
         
         st.divider()
         
         # Question Details with Metrics
-        st.header("📋 Question Details & Metrics")
+        st.header(" Question Details & Metrics")
         
         for i, q in enumerate(st.session_state.questions):
             with st.expander(f"Question {i+1} - {q['type'].upper()}: {q['question'][:60]}...", expanded=False):
@@ -393,7 +395,7 @@ with tab2:
                 # Show metrics for THIS question
                 if 'metrics' in q:
                     st.divider()
-                    st.subheader("📊 Quality Metrics")
+                    st.subheader(" Quality Metrics")
                     col1, col2, col3, col4 = st.columns(4)
                     col1.metric("BLEU", f"{q['metrics']['bleu']:.3f}")
                     col2.metric("ROUGE", f"{q['metrics']['rouge']:.3f}")
@@ -402,7 +404,7 @@ with tab2:
         
         # Overall Feedback Section
         st.divider()
-        st.header("💬 Your Feedback")
+        st.header(" Your Feedback")
         st.markdown("Share your overall thoughts about the generated questions")
         
         overall_feedback = st.text_area(
@@ -417,17 +419,17 @@ with tab2:
 
 # TAB 3: Chat with PDF
 with tab3:
-    st.title("💬 Chat with Your PDF")
+    st.title(" Chat with Your PDF")
     
     # Check if PDF has been processed
     if not st.session_state.chunks:
         st.warning("⚠️ Please upload and process a PDF in the 'Question Generation' tab first!")
-        st.info("👈 Go to the first tab to upload your PDF")
+        st.info(" Go to the first tab to upload your PDF")
     else:
         # Initialize RAG if not already done
         if st.session_state.rag_manager is None:
             if st.session_state.model_loaded:
-                with st.spinner("🔧 Initializing chat system..."):
+                with st.spinner(" Initializing chat system..."):
                     try:
                         st.session_state.rag_manager = RAGManager(model_type="gemini")
                         st.session_state.rag_manager.load_model()
@@ -442,31 +444,28 @@ with tab3:
         if st.session_state.rag_manager:
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("📄 Document Chunks", len(st.session_state.chunks))
+                st.metric(" Document Chunks", len(st.session_state.chunks))
             with col2:
                 total_words = sum(c['word_count'] for c in st.session_state.chunks)
-                st.metric("📝 Total Words", f"{total_words:,}")
+                st.metric(" Total Words", f"{total_words:,}")
             
             st.divider()
             
             # Chat interface
-            st.markdown("### 💭 Ask questions about your document")
+            st.markdown("###  Ask questions about your document")
             
             # Display chat history
             if st.session_state.chat_history:
-                st.markdown("#### � Conversation History")
+                st.markdown("####  Conversation History")
                 for i, msg in enumerate(st.session_state.chat_history):
                     if msg['role'] == 'user':
-                        st.markdown(f"**🧑 You:** {msg['content']}")
+                        st.markdown(f"** You:** {msg['content']}")
                     else:
                         st.markdown(f"**🤖 Assistant:** {msg['content']}")
                         
-                        # Show sources if available
-                        if 'sources' in msg and msg['sources']:
-                            with st.expander(f"📚 View {len(msg['sources'])} source(s)"):
-                                for j, source in enumerate(msg['sources'], 1):
-                                    st.markdown(f"**Source {j}** (Chunk {source['chunk_id']}):")
-                                    st.caption(source['text'])
+                        # Show relevance indicator if out of scope
+                        if not msg.get('is_in_scope', True):
+                            st.info("ℹ This question appears to be outside the scope of the uploaded document.")
                     
                     if i < len(st.session_state.chat_history) - 1:
                         st.markdown("---")
@@ -483,9 +482,9 @@ with tab3:
                 
                 col1, col2 = st.columns([3, 1])
                 with col1:
-                    submit = st.form_submit_button("🚀 Send", use_container_width=True, type="primary")
+                    submit = st.form_submit_button(" Send", use_container_width=True, type="primary")
                 with col2:
-                    clear = st.form_submit_button("🗑️ Clear Chat", use_container_width=True)
+                    clear = st.form_submit_button(" Clear Chat", use_container_width=True)
             
             # Handle clear
             if clear:
@@ -501,15 +500,17 @@ with tab3:
                 })
                 
                 # Get answer from RAG
-                with st.spinner("🤔 Thinking..."):
+                with st.spinner(" Thinking...  Hold tight!..."):
                     try:
                         response = st.session_state.rag_manager.chat(user_question)
                         
-                        # Add assistant message
+                        # Add assistant message with metadata
                         st.session_state.chat_history.append({
                             'role': 'assistant',
                             'content': response['answer'],
-                            'sources': response['sources']
+                            'sources': response['sources'],
+                            'is_in_scope': response.get('is_in_scope', True),
+                            'max_similarity': response.get('max_similarity', 0.0)
                         })
                         
                         st.rerun()
