@@ -332,13 +332,11 @@ with tab2:
             avg_bleu = sum(q['metrics']['bleu'] for q in questions_with_metrics) / len(questions_with_metrics)
             avg_rouge = sum(q['metrics']['rouge'] for q in questions_with_metrics) / len(questions_with_metrics)
             avg_bert = sum(q['metrics']['bert_score'] for q in questions_with_metrics) / len(questions_with_metrics)
-            avg_quality = sum(q['metrics']['quality_score'] for q in questions_with_metrics) / len(questions_with_metrics)
             
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
             col1.metric("Avg BLEU", f"{avg_bleu:.3f}")
             col2.metric("Avg ROUGE", f"{avg_rouge:.3f}")
             col3.metric("Avg BERT Score", f"{avg_bert:.3f}")
-            col4.metric("Avg Quality", f"{avg_quality:.3f}")
             
             # Distribution Charts
             st.subheader(" Metric Distributions")
@@ -442,15 +440,6 @@ with tab3:
         
         # Show document info
         if st.session_state.rag_manager:
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric(" Document Chunks", len(st.session_state.chunks))
-            with col2:
-                total_words = sum(c['word_count'] for c in st.session_state.chunks)
-                st.metric(" Total Words", f"{total_words:,}")
-            
-            st.divider()
-            
             # Chat interface
             st.markdown("###  Ask questions about your document")
             
@@ -459,9 +448,9 @@ with tab3:
                 st.markdown("####  Conversation History")
                 for i, msg in enumerate(st.session_state.chat_history):
                     if msg['role'] == 'user':
-                        st.markdown(f"** You:** {msg['content']}")
+                        st.markdown(f"<b>You:</b> {msg['content']}", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"**🤖 Assistant:** {msg['content']}")
+                        st.markdown(f"<b>Assistant:</b> {msg['content']}", unsafe_allow_html=True)
                         
                         # Show relevance indicator if out of scope
                         if not msg.get('is_in_scope', True):
