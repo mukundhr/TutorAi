@@ -217,6 +217,12 @@ with tab1:
                                 st.session_state.questions.append(q)
                             current_step += 1
                             progress.progress(current_step / total_steps)
+                            
+                            # Add delay between MCQ and SAQ generation to avoid rate limits
+                            if question_type == "both":
+                                import time
+                                status.text("⏳ Waiting to avoid rate limits...")
+                                time.sleep(5)  # 5 second delay
                         
                         # Generate exactly num_questions SAQs in total
                         if question_type in ["saq", "both"]:

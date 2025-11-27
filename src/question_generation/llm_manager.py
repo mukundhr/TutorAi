@@ -256,30 +256,69 @@ Generate EXACTLY {num_questions} questions now:"""
     
     def _generate_gemini(self, prompt: str, temperature: float) -> str:
         """Generate using Gemini"""
-        try:
-            print(f"🔵 Calling Gemini with temperature={temperature}...")
-            print(f"📝 Prompt length: {len(prompt)} characters")
-            
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=temperature,
-                    max_output_tokens=2048,
+        import time
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                print(f"🔵 Calling Gemini with temperature={temperature}... (attempt {retry_count + 1}/{max_retries})")
+                print(f"📝 Prompt length: {len(prompt)} characters")
+                
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=temperature,
+                        max_output_tokens=2048,
+                    )
                 )
-            )
-            
-            result = response.text
-            print(f"✅ Gemini response length: {len(result)} characters")
-            
-            if not result:
-                print("⚠️ WARNING: Gemini returned empty response!")
-            
-            return result
-        except Exception as e:
-            print(f"❌ Gemini error: {e}")
-            import traceback
-            traceback.print_exc()
-            return ""
+                
+                # Check if response was blocked
+                if not response.text:
+                    print("⚠️ WARNING: Gemini returned empty response!")
+                    if hasattr(response, 'prompt_feedback'):
+                        print(f"Prompt feedback: {response.prompt_feedback}")
+                    if hasattr(response, 'candidates') and response.candidates:
+                        print(f"Candidates: {response.candidates}")
+                    return ""
+                
+                result = response.text
+                print(f"✅ Gemini response length: {len(result)} characters")
+                print(f"📄 First 200 chars: {result[:200]}...")
+                
+                return result
+                
+            except Exception as e:
+                error_msg = str(e)
+                
+                # Check if it's a rate limit error
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+                    # Extract retry delay if available
+                    retry_delay = 30  # default
+                    if "retry in" in error_msg.lower():
+                        import re
+                        match = re.search(r'retry in (\d+)', error_msg.lower())
+                        if match:
+                            retry_delay = int(match.group(1)) + 1
+                    
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        print(f"⚠️ Rate limit hit! Waiting {retry_delay}s before retry {retry_count + 1}/{max_retries}...")
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        print(f"❌ Rate limit exceeded after {max_retries} retries")
+                        print(f"💡 TIP: Wait 1-2 minutes and try again, or reduce the number of questions")
+                        return ""
+                else:
+                    # Other error
+                    print(f"❌ Gemini error: {e}")
+                    print(f"Error type: {type(e).__name__}")
+                    import traceback
+                    traceback.print_exc()
+                    return ""
+        
+        return ""
     
     def _generate_llama(self, prompt: str, temperature: float) -> str:
         """Generate using LLaMA"""
@@ -336,25 +375,24 @@ Generate EXACTLY {num_questions} questions now:"""
         # Try to split by question patterns
         import re
         
-        # Look for Q1:, Q2:, etc. or just Q: patterns
-        question_pattern = r'(?:^|\n)Q\d*[:.]\s*(.+?)(?=\nQ\d*[:.]|\n*$)'
-        matches = re.findall(question_pattern, response, re.DOTALL | re.MULTILINE)
+        # Look for Q1:, Q2:, etc. - capture everything until the next Q or end
+        question_pattern = r'Q\d+:\s*(.+?)(?=Q\d+:|$)'
+        matches = re.findall(question_pattern, response, re.DOTALL)
         
-        if not matches:
-            # Fallback: split by double newlines
-            parts = response.split('\n\n')
-            print(f"🔍 Fallback: Found {len(parts)} parts after splitting by \\n\\n")
-        else:
-            parts = matches
+        if matches:
             print(f"🔍 Regex: Found {len(matches)} question blocks")
+            # Reconstruct full question text with Q number
+            parts = []
+            for i, match in enumerate(matches, 1):
+                parts.append(f"Q{i}: {match.strip()}")
+        else:
+            # Fallback: split by double newlines
+            parts = [p.strip() for p in response.split('\n\n') if p.strip()]
+            print(f"🔍 Fallback: Found {len(parts)} parts after splitting by \\n\\n")
         
         for i, part in enumerate(parts):
             if not part.strip():
                 continue
-            
-            # Reconstruct question block if needed
-            if not part.strip().startswith('Q'):
-                part = f"Q{i+1}: {part}"
             
             try:
                 if question_type == "mcq":
