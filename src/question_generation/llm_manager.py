@@ -10,8 +10,14 @@ from dotenv import load_dotenv
 # Gemini
 import google.generativeai as genai
 
-# LLaMA
-from llama_cpp import Llama
+# LLaMA - make it optional
+try:
+    from llama_cpp import Llama
+    LLAMA_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ LLaMA not available: {e}")
+    LLAMA_AVAILABLE = False
+    Llama = None
 
 load_dotenv()
 
@@ -32,6 +38,14 @@ class LLMManager:
         if self.model_type == "gemini":
             self._load_gemini()
         elif self.model_type == "llama":
+            if not LLAMA_AVAILABLE:
+                raise RuntimeError(
+                    "LLaMA is not available. Missing CUDA dependencies.\n\n"
+                    "Please use Gemini instead, or install CPU-only version:\n"
+                    "  pip uninstall llama-cpp-python -y\n"
+                    "  pip install llama-cpp-python\n\n"
+                    "For CUDA support, you need CUDA toolkit installed first."
+                )
             self._load_llama()
         else:
             raise ValueError(f"Unknown model type: {self.model_type}")
@@ -53,13 +67,47 @@ class LLMManager:
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"LLaMA model not found at {model_path}")
         
-        self.model = Llama(
-            model_path=model_path,
-            n_ctx=2048,  # Context window
-            n_threads=4,  # CPU threads
-            n_gpu_layers=0  # Set to 35 if you have GPU
+        print(f"📂 Loading LLaMA from: {model_path}")
+        print("🎮 Attempting GPU acceleration...")
+        
+        try:
+            self.model = Llama(
+                model_path=model_path,
+                n_ctx=2048,  # Reduced for faster processing
+                n_threads=8,
+                n_gpu_layers=35,
+                n_batch=256,  # Reduced from 512
+                verbose=False,
+                use_mlock=True  # Keep model in RAM
+            )
+            print("✅ LLaMA 2 7B loaded with GPU")
+        except Exception as e:
+            print(f"⚠️ GPU loading failed: {e}")
+            print("🔄 Retrying with CPU only...")
+            self.model = Llama(
+                model_path=model_path,
+                n_ctx=1536,  # Smaller context for CPU
+                n_threads=6,  # Optimized thread count
+                n_gpu_layers=0,
+                n_batch=128,
+                verbose=False,
+                use_mlock=True
+            )
+            print("✅ LLaMA 2 7B loaded (CPU mode - will be slower)")
+            print("⚠️ NOTE: CPU generation can take 1-3 minutes per batch")
+        
+        # Test generation
+        print("🧪 Testing LLaMA generation...")
+        import time
+        start = time.time()
+        test_result = self.model(
+            "[INST] Say only: Test successful [/INST]",
+            max_tokens=20,
+            temperature=0.1
         )
-        print("✅ LLaMA 2 7B loaded")
+        elapsed = time.time() - start
+        test_output = test_result['choices'][0]['text'].strip()
+        print(f"✅ LLaMA test output: '{test_output}' ({elapsed:.1f}s)")
     
     def generate_questions(
         self,
@@ -82,12 +130,32 @@ class LLMManager:
         Returns:
             List of question dictionaries
         """
+        print(f"\n{'='*60}")
+        print(f"🎯 Generating {num_questions} {question_type.upper()}s using {self.model_type.upper()}")
+        print(f"{'='*60}")
+        
         prompt = self._build_prompt(text, question_type, num_questions, difficulty)
         
         if self.model_type == "gemini":
             response = self._generate_gemini(prompt, temperature)
         else:
             response = self._generate_llama(prompt, temperature)
+        
+        # Check if we got a response
+        if not response or len(response.strip()) < 50:
+            print(f"\n❌ GENERATION FAILED!")
+            print(f"   Model: {self.model_type.upper()}")
+            print(f"   Response length: {len(response) if response else 0} chars")
+            print(f"   Response content: '{response[:200] if response else 'EMPTY'}'")
+            print(f"\n💡 Troubleshooting tips:")
+            if self.model_type == "llama":
+                print(f"   - LLaMA may need more time/resources")
+                print(f"   - Try switching to Gemini (more reliable)")
+                print(f"   - Check terminal for detailed error messages")
+            else:
+                print(f"   - Check your Gemini API key in .env file")
+                print(f"   - Verify internet connection")
+            return []
         
         # Parse response into structured questions
         questions = self._parse_response(response, question_type)
@@ -105,6 +173,7 @@ class LLMManager:
             elif len(questions) < num_questions:
                 print(f"⚠️ Only generated {len(questions)}/{num_questions} questions")
         
+        print(f"✅ Successfully generated {len(questions)} {question_type.upper()}s\n")
         return questions
     
     def _build_prompt(self, text: str, question_type: str, num_questions: int, difficulty: str) -> str:
@@ -220,17 +289,43 @@ Generate EXACTLY {num_questions} questions now:"""
     
     def _generate_llama(self, prompt: str, temperature: float) -> str:
         """Generate using LLaMA"""
+        import time
         try:
+            print(f"🟡 Calling LLaMA with temperature={temperature}...")
+            print(f"📝 Prompt length: {len(prompt)} characters")
+            print(f"⏱️ This may take 30-90 seconds on CPU...")
+            
+            # LLaMA 2 Chat format
+            formatted_prompt = f"[INST] {prompt} [/INST]"
+            
+            start_time = time.time()
+            
             response = self.model(
-                prompt,
-                max_tokens=2048,
+                formatted_prompt,
+                max_tokens=1024,  # Reduced from 2048 for faster generation
                 temperature=temperature,
                 top_p=0.9,
-                echo=False
+                echo=False,
+                stop=["[INST]", "</s>", "Q6:", "Q7:"],  # Stop after requested questions
+                repeat_penalty=1.1,
+                top_k=40  # Add top_k for better quality/speed balance
             )
-            return response['choices'][0]['text']
+            
+            elapsed = time.time() - start_time
+            result = response['choices'][0]['text'].strip()
+            print(f"✅ LLaMA response length: {len(result)} characters (took {elapsed:.1f}s)")
+            print(f"📄 LLaMA response preview:\n{result[:300]}...")
+            
+            if not result or len(result.strip()) < 20:
+                print("⚠️ WARNING: LLaMA returned empty or very short response!")
+                print(f"Full response: '{result}'")
+            
+            return result
         except Exception as e:
             print(f"❌ LLaMA error: {e}")
+            import traceback
+            print("Full traceback:")
+            traceback.print_exc()
             return ""
     
     def _parse_response(self, response: str, question_type: str) -> List[Dict]:
@@ -242,15 +337,30 @@ Generate EXACTLY {num_questions} questions now:"""
             return questions
         
         print(f"📄 Parsing {question_type} response ({len(response)} chars)...")
-        print(f"First 200 chars: {response[:200]}...")
+        print(f"First 500 chars: {response[:500]}...")
         
-        # Split by question markers
-        parts = response.split('\n\n')
-        print(f"🔍 Found {len(parts)} parts after splitting by \\n\\n")
+        # Try to split by question patterns
+        import re
+        
+        # Look for Q1:, Q2:, etc. or just Q: patterns
+        question_pattern = r'(?:^|\n)Q\d*[:.]\s*(.+?)(?=\nQ\d*[:.]|\n*$)'
+        matches = re.findall(question_pattern, response, re.DOTALL | re.MULTILINE)
+        
+        if not matches:
+            # Fallback: split by double newlines
+            parts = response.split('\n\n')
+            print(f"🔍 Fallback: Found {len(parts)} parts after splitting by \\n\\n")
+        else:
+            parts = matches
+            print(f"🔍 Regex: Found {len(matches)} question blocks")
         
         for i, part in enumerate(parts):
-            if not part.strip() or not part.startswith('Q'):
+            if not part.strip():
                 continue
+            
+            # Reconstruct question block if needed
+            if not part.strip().startswith('Q'):
+                part = f"Q{i+1}: {part}"
             
             try:
                 if question_type == "mcq":
@@ -262,7 +372,7 @@ Generate EXACTLY {num_questions} questions now:"""
                     questions.append(q)
                     print(f"✅ Successfully parsed question {len(questions)}")
                 else:
-                    print(f"⚠️ Failed to parse part {i}")
+                    print(f"⚠️ Failed to parse part {i}: {part[:100]}...")
             except Exception as e:
                 print(f"⚠️ Parse error on part {i}: {e}")
                 continue
@@ -275,27 +385,40 @@ Generate EXACTLY {num_questions} questions now:"""
         lines = [l.strip() for l in text.split('\n') if l.strip()]
         
         if len(lines) < 6:  # Need Q, A, B, C, D, ANSWER minimum
+            print(f"⚠️ MCQ too short: only {len(lines)} lines")
             return None
         
-        question = lines[0].split(':', 1)[1].strip() if ':' in lines[0] else lines[0]
+        # Extract question - handle various formats
+        question = ""
+        if ':' in lines[0]:
+            question = lines[0].split(':', 1)[1].strip()
+        else:
+            question = lines[0].replace('Q1', '').replace('Q2', '').replace('Q3', '').replace('Q4', '').replace('Q5', '').strip()
         
         options = {}
         answer = ""
         explanation = ""
         
         for line in lines[1:]:
-            if line.startswith(('A)', 'A.')):
-                options['A'] = line[2:].strip()
-            elif line.startswith(('B)', 'B.')):
-                options['B'] = line[2:].strip()
-            elif line.startswith(('C)', 'C.')):
-                options['C'] = line[2:].strip()
-            elif line.startswith(('D)', 'D.')):
-                options['D'] = line[2:].strip()
-            elif line.startswith('ANSWER:'):
-                answer = line.split(':', 1)[1].strip()[0]  # Get first letter
-            elif line.startswith('EXPLANATION:'):
-                explanation = line.split(':', 1)[1].strip()
+            # More flexible option matching
+            if line.upper().startswith(('A)', 'A.', 'A:', 'A -')):
+                options['A'] = line[2:].strip() if len(line) > 2 else line[3:].strip()
+            elif line.upper().startswith(('B)', 'B.', 'B:', 'B -')):
+                options['B'] = line[2:].strip() if len(line) > 2 else line[3:].strip()
+            elif line.upper().startswith(('C)', 'C.', 'C:', 'C -')):
+                options['C'] = line[2:].strip() if len(line) > 2 else line[3:].strip()
+            elif line.upper().startswith(('D)', 'D.', 'D:', 'D -')):
+                options['D'] = line[2:].strip() if len(line) > 2 else line[3:].strip()
+            elif 'ANSWER:' in line.upper() or 'CORRECT:' in line.upper():
+                # Extract answer letter
+                answer_part = line.split(':', 1)[1].strip() if ':' in line else line
+                # Get first letter that's A, B, C, or D
+                for char in answer_part.upper():
+                    if char in ['A', 'B', 'C', 'D']:
+                        answer = char
+                        break
+            elif 'EXPLANATION:' in line.upper():
+                explanation = line.split(':', 1)[1].strip() if ':' in line else ""
         
         if len(options) == 4 and answer:
             return {
@@ -305,23 +428,42 @@ Generate EXACTLY {num_questions} questions now:"""
                 'explanation': explanation,
                 'type': 'mcq'
             }
+        else:
+            print(f"⚠️ MCQ incomplete: {len(options)} options, answer={answer}")
         
         return None
     
     def _parse_saq(self, text: str) -> Optional[Dict]:
         """Parse SAQ from text"""
-        if 'ANSWER:' not in text:
+        if 'ANSWER:' not in text.upper():
+            print(f"⚠️ SAQ missing ANSWER: marker")
             return None
         
-        parts = text.split('ANSWER:', 1)
-        question = parts[0].split(':', 1)[1].strip() if ':' in parts[0] else parts[0].strip()
+        # Case-insensitive split
+        import re
+        parts = re.split(r'ANSWER:\s*', text, flags=re.IGNORECASE, maxsplit=1)
+        
+        if len(parts) < 2:
+            return None
+        
+        # Extract question - handle various formats
+        question = parts[0]
+        if ':' in question:
+            question = question.split(':', 1)[1].strip()
+        question = question.replace('Q1', '').replace('Q2', '').replace('Q3', '').replace('Q4', '').replace('Q5', '').strip()
+        
         answer = parts[1].strip()
         
-        return {
-            'question': question,
-            'answer': answer,
-            'type': 'saq'
-        }
+        if question and answer and len(answer) > 10:
+            return {
+                'question': question,
+                'answer': answer,
+                'type': 'saq'
+            }
+        else:
+            print(f"⚠️ SAQ incomplete: Q len={len(question)}, A len={len(answer)}")
+        
+        return None
 
 
 # Example usage

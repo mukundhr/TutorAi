@@ -43,6 +43,8 @@ if 'rag_manager' not in st.session_state:
     st.session_state.rag_manager = None
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = {}
+if 'selected_model' not in st.session_state:
+    st.session_state.selected_model = 'gemini'
 
 
 def calculate_metrics(question: dict, source_text: str) -> dict:
@@ -98,6 +100,9 @@ with st.sidebar:
                 st.session_state.llm = LLMManager(model_type=model_type)
                 st.session_state.llm.load_model()
                 st.session_state.model_loaded = True
+                st.session_state.selected_model = model_type  # Store selected model
+                # Reset RAG manager when model changes
+                st.session_state.rag_manager = None
                 st.success(f"✅ {model_type.upper()} loaded!")
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
@@ -429,10 +434,11 @@ with tab3:
             if st.session_state.model_loaded:
                 with st.spinner(" Initializing chat system..."):
                     try:
-                        st.session_state.rag_manager = RAGManager(model_type="gemini")
+                        # Use the same model type selected in sidebar
+                        st.session_state.rag_manager = RAGManager(model_type=st.session_state.selected_model)
                         st.session_state.rag_manager.load_model()
                         st.session_state.rag_manager.index_documents(st.session_state.chunks)
-                        st.success("✅ Chat system ready!")
+                        st.success(f"✅ Chat system ready with {st.session_state.selected_model.upper()}!")
                     except Exception as e:
                         st.error(f"❌ Failed to initialize chat: {e}")
             else:
