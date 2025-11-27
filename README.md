@@ -95,6 +95,19 @@ cd TutorAi
 pip install -r requirements.txt
 ```
 
+**Optional: For Local LLaMA Support (CPU-only)**
+```bash
+pip install llama-cpp-python
+```
+
+**Optional: For Local LLaMA Support (GPU with CUDA)**
+```bash
+# Requires NVIDIA CUDA Toolkit 12.1+ installed first
+pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
+```
+
+> **Note**: LLaMA is optional. The app works perfectly with just Gemini (recommended).
+
 **3. Download Required Models**
 
 ```bash

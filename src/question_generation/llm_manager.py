@@ -10,15 +10,6 @@ from dotenv import load_dotenv
 # Gemini
 import google.generativeai as genai
 
-# LLaMA - make it optional
-try:
-    from llama_cpp import Llama
-    LLAMA_AVAILABLE = True
-except Exception as e:
-    print(f"⚠️ LLaMA not available: {e}")
-    LLAMA_AVAILABLE = False
-    Llama = None
-
 load_dotenv()
 
 
@@ -38,13 +29,16 @@ class LLMManager:
         if self.model_type == "gemini":
             self._load_gemini()
         elif self.model_type == "llama":
-            if not LLAMA_AVAILABLE:
+            # Import LLaMA only when needed
+            try:
+                from llama_cpp import Llama
+                self._llama_class = Llama
+            except ImportError as e:
                 raise RuntimeError(
-                    "LLaMA is not available. Missing CUDA dependencies.\n\n"
-                    "Please use Gemini instead, or install CPU-only version:\n"
-                    "  pip uninstall llama-cpp-python -y\n"
+                    "LLaMA is not available. llama-cpp-python is not installed.\n\n"
+                    "Please use Gemini instead, or install LLaMA support:\n"
                     "  pip install llama-cpp-python\n\n"
-                    "For CUDA support, you need CUDA toolkit installed first."
+                    f"Error: {e}"
                 )
             self._load_llama()
         else:
@@ -71,7 +65,7 @@ class LLMManager:
         print("🎮 Attempting GPU acceleration...")
         
         try:
-            self.model = Llama(
+            self.model = self._llama_class(
                 model_path=model_path,
                 n_ctx=2048,  # Reduced for faster processing
                 n_threads=8,
@@ -84,7 +78,7 @@ class LLMManager:
         except Exception as e:
             print(f"⚠️ GPU loading failed: {e}")
             print("🔄 Retrying with CPU only...")
-            self.model = Llama(
+            self.model = self._llama_class(
                 model_path=model_path,
                 n_ctx=1536,  # Smaller context for CPU
                 n_threads=6,  # Optimized thread count

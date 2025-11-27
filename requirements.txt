@@ -1,5 +1,5 @@
 torch
-llama-cpp-python
+# llama-cpp-python  # Optional - only needed if using local LLaMA model
 google-generativeai
 pdfplumber
 PyPDF2
