@@ -11,9 +11,10 @@
 **Intelligent Question Generation** - Automatically create contextual MCQs and SAQs from any PDF  
 **AI-Powered Chat Assistant** - Ask questions and get answers with FAISS semantic search  
 **Quality Analytics** - Comprehensive metrics with BLEU, ROUGE, and BERT scores  
-**Adaptive Difficulty** - Generate questions across easy, medium, and hard levels
+**Adaptive Difficulty** - Generates questions easy , medium, hard.
 
-## Features
+##Features
+
 
 ### **Advanced Question Generation**
 
